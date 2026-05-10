@@ -18,8 +18,8 @@
                         <li><a target="_blank" href="{{ route('report.all') }}">Laporan Keseluruhan</a></li>
                     </ul>
                 </li>
-                <li><a target="_blank" href="{{ route('non-tender.realization') }}">Realisasi Non Tender</a></li>
-                <li><a target="_blank" href="{{ route('tender.realization') }}">Realisasi Tender</a></li>
+                <li><a href="{{ route('non-tender.realization') }}">Realisasi Non Tender</a></li>
+                <li><a href="{{ route('tender.realization') }}">Realisasi Tender</a></li>
                 <li><a target="_blank" href="{{ route('report.rup') }}">Data RUP</a></li>
                 <li><a href="#">Data Vendor</a></li>
                 <li><a href="#">Summary Report</a></li>

@@ -237,10 +237,10 @@
 
         <!-- Summary Report Dropdown -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Summary Report</a>
+          <a class="nav-link dropdown-toggle {{ request()->routeIs('non-tender.realization', 'tender.realization') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown">Summary Report</a>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" target="_blank" href="{{ route('non-tender.realization') }}">Realisasi Non Tender</a></li>
-            <li><a class="dropdown-item" target="_blank" href="{{ route('tender.realization') }}">Realisasi Tender</a></li>
+            <li><a class="dropdown-item {{ request()->routeIs('non-tender.realization') ? 'active' : '' }}" href="{{ route('non-tender.realization') }}">Realisasi Non Tender</a></li>
+            <li><a class="dropdown-item {{ request()->routeIs('tender.realization') ? 'active' : '' }}" href="{{ route('tender.realization') }}">Realisasi Tender</a></li>
           </ul>
         </li>
 

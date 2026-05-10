@@ -242,8 +242,8 @@
             Summary Report
           </a>
           <ul class="dropdown-menu" aria-labelledby="summaryReportDropdown">
-            <li><a class="dropdown-item" target="_blank" href="{{ route('non-tender.realization') }}">Realisasi Non Tender</a></li>
-            <li><a class="dropdown-item" target="_blank" href="{{ route('tender.realization') }}">Realisasi Tender</a></li>
+            <li><a class="dropdown-item" href="{{ route('non-tender.realization') }}">Realisasi Non Tender</a></li>
+            <li><a class="dropdown-item" href="{{ route('tender.realization') }}">Realisasi Tender</a></li>
           </ul>
         </li>
 

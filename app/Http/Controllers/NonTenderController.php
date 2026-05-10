@@ -277,7 +277,14 @@ public function viewPdf(Request $request)
 
 public function realization(Request $request)
 {
-    return $this->viewPdf($request);
+    $report = $this->prepareNonTenderRealizationReport($request);
+
+    return view('users.summary-realization', array_merge($report, [
+        'pageTitle' => 'Realisasi Paket Non Tender',
+        'tableTitle' => 'REALISASI PAKET NON TENDER',
+        'filterRoute' => route('non-tender.realization'),
+        'exportRoute' => route('non-tender.viewPdf', $request->query()),
+    ]));
 }
 
 public function downloadPdf(Request $request)
@@ -285,7 +292,24 @@ public function downloadPdf(Request $request)
     return $this->generateNonTenderPdf($request, 'download');
 }
 private function generateNonTenderPdf(Request $request, $mode = 'view')
-        {
+{
+    $report = $this->prepareNonTenderRealizationReport($request);
+
+    $html2pdf = new Html2Pdf('L', 'A2', 'en', true, 'UTF-8', [10, 10, 10, 10]);
+    $view = auth()->user()->role_id == 1 ? 'non-tender.realization' : 'users.non-tender.realization';
+
+    $render = view($view, $report);
+
+    $html2pdf->pdf->SetAutoPageBreak(true, 10);
+    $html2pdf->writeHTML($render);
+
+    return $mode === 'download'
+        ? $html2pdf->output("realisasi_non_tender_{$report['year']}.pdf", 'D')
+        : $html2pdf->output();
+}
+
+private function prepareNonTenderRealizationReport(Request $request): array
+{
             // Prioritaskan parameter 'end' jika ada
             $endParam = $request->input('end');
             if ($endParam) {
@@ -316,27 +340,39 @@ private function generateNonTenderPdf(Request $request, $mode = 'view')
                     $endDate = Carbon::createFromDate($year, 12, 31)->endOfDay();
                 }
             }
+
+            $status = $request->input('status', 'ALL');
+            $statusOptions = ['Selesai', 'Berlangsung'];
+            if (!in_array($status, array_merge(['ALL'], $statusOptions), true)) {
+                $status = 'ALL';
+            }
+            $selectedStatuses = $status === 'ALL' ? $statusOptions : [$status];
         
             $startDate = Carbon::createFromDate($year, 1, 1)->startOfDay();
         
             // Ambil data dari DB - Simplified logic using primary table
             $raw = DB::table('non_tender_pengumuman as p')
+                ->leftJoin('non_tender_selesai', 'p.kd_nontender', '=', 'non_tender_selesai.kd_nontender')
+                ->leftJoin('non_tender_contract', 'p.kd_nontender', '=', 'non_tender_contract.kd_nontender')
                 ->select(
                     'p.nama_satker',
                     'p.jenis_pengadaan',
                     'p.pagu',
                     'p.hps',
                     'p.status_nontender',
-                    DB::raw('COALESCE(p.hps, 0) as nilai_terkontrak')
+                    DB::raw('COALESCE(non_tender_contract.nilai_kontrak, non_tender_selesai.nilai_kontrak, 0) as nilai_terkontrak')
                 )
                 ->where('p.kd_klpd', 'D264')
+                ->where('p.kd_satker', '!=', '350504')
                 ->where('p.tahun_anggaran', $year)
-                ->whereIn('p.status_nontender', ['Selesai', 'Berlangsung'])
+                ->whereIn('p.status_nontender', $selectedStatuses)
                 ->get();
         
-            $satkers = StrukturAnggaran::where('kd_klpd', 'D264')
-                ->where('tahun_anggaran', $year)
+            $satkers = Satker::where('kd_klpd', 'D264')
+                ->where('kd_satker', '!=', '350504')
                 ->pluck('nama_satker')
+                ->filter()
+                ->map(fn ($nama) => trim($nama))
                 ->unique()
                 ->sort()
                 ->values()
@@ -356,46 +392,52 @@ private function generateNonTenderPdf(Request $request, $mode = 'view')
             ];
         
             foreach ($satkers as $nama) {
-                $data[$nama] = array_merge(['name' => $nama], array_fill_keys(array_keys($total), 0));
+                $key = strtolower($nama);
+                $data[$key] = array_merge(['name' => $nama], array_fill_keys(array_keys($total), 0));
             }
         
             foreach ($raw as $value) {
-                $satker = $value->nama_satker;
-                if (!isset($data[$satker])) continue;
+                $satker = trim($value->nama_satker ?? '');
+                if ($satker === '') continue;
+
+                $satkerKey = strtolower($satker);
+                if (!isset($data[$satkerKey])) {
+                    $data[$satkerKey] = array_merge(['name' => $satker], array_fill_keys(array_keys($total), 0));
+                }
         
-                $data[$satker]['package_count']++;
+                $data[$satkerKey]['package_count']++;
                 $total['package_count']++;
         
                 $category = getCategory($value->jenis_pengadaan);
-                if ($category && isset($data[$satker][$category])) {
-                    $data[$satker][$category]++;
+                if ($category && isset($data[$satkerKey][$category])) {
+                    $data[$satkerKey][$category]++;
                     $total[$category]++;
                 }
         
-                $data[$satker]['pagu'] += $value->pagu;
+                $data[$satkerKey]['pagu'] += $value->pagu;
                 $total['pagu'] += $value->pagu;
         
-                $data[$satker]['hps'] += $value->hps;
+                $data[$satkerKey]['hps'] += $value->hps;
                 $total['hps'] += $value->hps;
         
-                $data[$satker]['nilai_terkontrak'] += $value->nilai_terkontrak;
+                $data[$satkerKey]['nilai_terkontrak'] += $value->nilai_terkontrak;
                 $total['nilai_terkontrak'] += $value->nilai_terkontrak;
         
                 $efficiency = $value->pagu - $value->nilai_terkontrak;
-                $data[$satker]['efficiency'] += $efficiency;
+                $data[$satkerKey]['efficiency'] += $efficiency;
                 $total['efficiency'] += $efficiency;
 
-                $status = $value->status_nontender;
-                $data[$satker]['status_list'][] = $status;
+                $packageStatus = $value->status_nontender;
+                $data[$satkerKey]['status_list'][] = $packageStatus;
                 
                 // Inisialisasi array count jika belum ada
-                if (!isset($data[$satker]['status_count'])) {
-                    $data[$satker]['status_count'] = [];
+                if (!isset($data[$satkerKey]['status_count'])) {
+                    $data[$satkerKey]['status_count'] = [];
                 }
-                if (!isset($data[$satker]['status_count'][$status])) {
-                    $data[$satker]['status_count'][$status] = 0;
+                if (!isset($data[$satkerKey]['status_count'][$packageStatus])) {
+                    $data[$satkerKey]['status_count'][$packageStatus] = 0;
                 }
-                $data[$satker]['status_count'][$status]++;
+                $data[$satkerKey]['status_count'][$packageStatus]++;
                 
                 
             }
@@ -403,26 +445,18 @@ private function generateNonTenderPdf(Request $request, $mode = 'view')
             $finalData = array_values($data);
         
             $title = "REALISASI PAKET NON TENDER\nOPD PROVINSI LAMPUNG\nTAHUN ANGGARAN {$year} S.D TANGGAL " . strtoupper($endDate->translatedFormat('d F Y'));
-        
-            $html2pdf = new Html2Pdf('L', 'A2', 'en', true, 'UTF-8', [10, 10, 10, 10]);
-            $view = auth()->user()->role_id == 1 ? 'non-tender.realization' : 'users.non-tender.realization';
-        
-            $render = view($view, [
+
+            return [
                 'data' => $finalData,
                 'total' => $total,
                 'title' => $title,
                 'month' => $month,
                 'day' => $day,
                 'year' => $year,
-            ]);
-        
-            $html2pdf->pdf->SetAutoPageBreak(true, 10);
-            $html2pdf->writeHTML($render);
-        
-            return $mode === 'download'
-                ? $html2pdf->output("realisasi_non_tender_{$year}.pdf", 'D')
-                : $html2pdf->output();
-        }
+                'status' => $status,
+                'statusOptions' => $statusOptions,
+            ];
+}
         
 
 }
