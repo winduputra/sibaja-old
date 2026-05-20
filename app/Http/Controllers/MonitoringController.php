@@ -18,66 +18,14 @@ class MonitoringController extends Controller
 
     public function presentaseRealisasi(Request $request)
     {
-        $tahunParam = $request->get('tahun');
+        $tahunListOptions = $this->getRealisasiTahunList();
+        $selectedTahun = (int) ($request->get('tahun') ?: ($tahunListOptions[0] ?? date('Y')));
+        $tahunList = [$selectedTahun];
 
-        if (empty($tahunParam) && $request->filled('satker')) {
-            $tahunList = DB::table('satkers')
-                ->select('tahun_anggaran')
-                ->distinct()
-                ->orderBy('tahun_anggaran')
-                ->pluck('tahun_anggaran')
-                ->toArray();
-        } elseif (!empty($tahunParam)) {
-            $tahunList = is_array($tahunParam) ? $tahunParam : [$tahunParam];
-        } else {
-            // Get available years from multiple data sources
-            $satkerYears = DB::table('satkers')
-                ->select('tahun_anggaran')
-                ->distinct()
-                ->pluck('tahun_anggaran')
-                ->map(function($val) { return (int)$val; })
-                ->toArray();
-
-            $tenderYears = DB::table('tender_pengumuman_data')
-                ->select('tahun')
-                ->distinct()
-                ->pluck('tahun')
-                ->map(function($val) { return (int)$val; })
-                ->toArray();
-
-            $nonTenderYears = DB::table('non_tender_pengumuman')
-                ->select('tahun_anggaran')
-                ->distinct()
-                ->pluck('tahun_anggaran')
-                ->map(function($val) { return (int)$val; })
-                ->toArray();
-
-            // Merge all years and remove duplicates
-            $availableYears = array_unique(array_merge($satkerYears, $tenderYears, $nonTenderYears));
-            sort($availableYears, SORT_NUMERIC);
-            $availableYears = array_reverse($availableYears);
-
-            // If still empty, create default range
-            if (empty($availableYears)) {
-                $currentYear = (int)date('Y');
-                $availableYears = [$currentYear, $currentYear + 1];
-            }
-            $tahunList = $availableYears;
-        }
-
-        $tahunAkhir = end($tahunList);
-
-        // Ambil daftar satker dari satkers table (bukan struktur_anggarans - itu kosong)
-        $satkers = DB::table('satkers')
-            ->select('kd_satker', 'nama_satker')
-            ->whereIn('tahun_anggaran', $tahunList)
-            ->distinct()
-            ->orderBy('nama_satker')
-            ->get();
+        $satkers = $this->getRealisasiSatkers($tahunList);
 
         $data = $satkers->map(function ($satker) use ($tahunList) {
             $namaSatker = $satker->nama_satker;
-            $kdSatker = $satker->kd_satker;
 
             // Belanja Pengadaan = RUP Penyedia + RUP Swakelola
             $belanjaPenyedia = DB::table('penyedias')
@@ -131,7 +79,7 @@ class MonitoringController extends Controller
             ];
         });
 
-        // Ambil list nama satker dari satkers table
+        // Ambil list nama satker dari seluruh sumber realisasi/RUP.
         $listSatker = $satkers->pluck('nama_satker')->unique()->sort()->values();
 
         // Filter data jika satker dipilih
@@ -148,6 +96,7 @@ class MonitoringController extends Controller
     return view($view, [
         'data' => $data,
         'tahun' => implode(', ', $tahunList),
+        'tahunListOptions' => $tahunListOptions,
         'listSatker' => $listSatker,
     ]);
 
@@ -160,64 +109,15 @@ public function exportRealisasiToPDF(Request $request)
     $satkerFilter = $request->get('satker');
     $mode = $request->get('mode', 'V'); // 'V' = view, 'D' = download
 
-    // Determine tahun list same as presentaseRealisasi
-    if (!empty($tahunParam)) {
-        $tahunList = is_array($tahunParam) ? $tahunParam : [$tahunParam];
-    } else {
-        // Get available years from multiple data sources
-        $satkerYears = DB::table('satkers')
-            ->select('tahun_anggaran')
-            ->distinct()
-            ->pluck('tahun_anggaran')
-            ->map(function($val) { return (int)$val; })
-            ->toArray();
+    $tahunListOptions = $this->getRealisasiTahunList();
+    $selectedTahun = (int) ($tahunParam ?: ($tahunListOptions[0] ?? date('Y')));
+    $tahunList = [$selectedTahun];
 
-        $tenderYears = DB::table('tender_pengumuman_data')
-            ->select('tahun')
-            ->distinct()
-            ->pluck('tahun')
-            ->map(function($val) { return (int)$val; })
-            ->toArray();
-
-        $nonTenderYears = DB::table('non_tender_pengumuman')
-            ->select('tahun_anggaran')
-            ->distinct()
-            ->pluck('tahun_anggaran')
-            ->map(function($val) { return (int)$val; })
-            ->toArray();
-
-        // Merge all years and remove duplicates
-        $availableYears = array_unique(array_merge($satkerYears, $tenderYears, $nonTenderYears));
-        sort($availableYears, SORT_NUMERIC);
-        $availableYears = array_reverse($availableYears);
-
-        // If still empty, create default range
-        if (empty($availableYears)) {
-            $currentYear = (int)date('Y');
-            $availableYears = [$currentYear, $currentYear + 1];
-        }
-
-        $tahunList = $availableYears;
-    }
-
-    if (!is_array($tahunList)) {
-        $tahunList = [$tahunList];
-    }
-
-    $tahunAkhir = max($tahunList);
-
-    // Get satkers list
-    $satkers = DB::table('satkers')
-        ->select('kd_satker', 'nama_satker')
-        ->whereIn('tahun_anggaran', $tahunList)
-        ->distinct()
-        ->orderBy('nama_satker')
-        ->get();
+    $satkers = $this->getRealisasiSatkers($tahunList);
 
     // Map data same as presentaseRealisasi
     $data = $satkers->map(function ($satker) use ($tahunList) {
         $namaSatker = $satker->nama_satker;
-        $kdSatker = $satker->kd_satker;
 
         // Belanja Pengadaan = RUP Penyedia + RUP Swakelola
         $belanjaPenyedia = DB::table('penyedias')
@@ -297,6 +197,68 @@ public function exportRealisasiToPDF(Request $request)
         $pdf->output($fileName);
         exit;
     }
+}
+
+private function getRealisasiSatkers(array $tahunList)
+{
+    return collect([
+        DB::table('satkers')
+            ->whereIn('tahun_anggaran', $tahunList)
+            ->pluck('nama_satker'),
+        DB::table('penyedias')
+            ->whereIn('tahun_anggaran', $tahunList)
+            ->pluck('nama_satker'),
+        DB::table('swakelolas')
+            ->whereIn('tahun_anggaran', $tahunList)
+            ->pluck('nama_satker'),
+        DB::table('tender_pengumuman_data')
+            ->whereIn('tahun', $tahunList)
+            ->pluck('nama_satker'),
+        DB::table('non_tender_pengumuman')
+            ->whereIn('tahun_anggaran', $tahunList)
+            ->pluck('nama_satker'),
+        DB::table('ekatalog_v5_pakets')
+            ->whereIn('tahun_anggaran', $tahunList)
+            ->pluck('nama_satker'),
+        DB::table('ekatalog_v6_pakets')
+            ->whereIn('tahun_anggaran', $tahunList)
+            ->pluck('nama_satker'),
+        DB::table('toko_darings')
+            ->whereIn('tahun', $tahunList)
+            ->pluck('nama_satker'),
+    ])
+        ->flatten()
+        ->filter()
+        ->unique()
+        ->sort()
+        ->values()
+        ->map(function ($namaSatker) {
+            return (object) ['nama_satker' => $namaSatker];
+        });
+}
+
+private function getRealisasiTahunList()
+{
+    return collect([
+        DB::table('satkers')->pluck('tahun_anggaran'),
+        DB::table('penyedias')->pluck('tahun_anggaran'),
+        DB::table('swakelolas')->pluck('tahun_anggaran'),
+        DB::table('tender_pengumuman_data')->pluck('tahun'),
+        DB::table('non_tender_pengumuman')->pluck('tahun_anggaran'),
+        DB::table('ekatalog_v5_pakets')->pluck('tahun_anggaran'),
+        DB::table('ekatalog_v6_pakets')->pluck('tahun_anggaran'),
+        DB::table('toko_darings')->pluck('tahun'),
+    ])
+        ->flatten()
+        ->filter()
+        ->map(function ($tahun) {
+            return (int) $tahun;
+        })
+        ->filter()
+        ->unique()
+        ->sortDesc()
+        ->values()
+        ->all();
 }
 
 

@@ -43,6 +43,11 @@
         background-color: #f0f0f0;
     }
 
+    .total-row {
+        background-color: #f4f4f4;
+        font-weight: bold;
+    }
+
     .satker-name {
         color: #0066cc;
         cursor: pointer;
@@ -293,6 +298,16 @@
                                     </tr>
                                 @endforeach
                             </tbody>
+                            <tfoot>
+                                <tr class="total-row">
+                                    <td colspan="3" class="text-right">Total</td>
+                                    <td>{{ collect($data)->sum('total_paket') }}</td>
+                                    <td class="currency-format">
+                                        Rp {{ number_format(collect($data)->sum('total_pagu'), 0, ',', '.') }}
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 @else

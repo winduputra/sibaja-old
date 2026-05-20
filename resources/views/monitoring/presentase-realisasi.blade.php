@@ -425,16 +425,9 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="filter-grid">
     <div class="form-group">
       <label for="tahun">Pilih Tahun:</label>
-      <select name="tahun" id="tahun" class="form-control" onchange="document.getElementById('filter-form').submit()">
-        <option value="">-- Pilih Tahun --</option>
-        @php
-          // Parse tahun string (e.g., "2026" or "2024, 2025") into array
-          $tahunArray = array_map('intval', array_map('trim', explode(',', $tahun)));
-          $uniqueTahun = array_unique($tahunArray);
-          rsort($uniqueTahun);
-        @endphp
-        @foreach($uniqueTahun as $th)
-          <option value="{{ $th }}" {{ request('tahun') == $th ? 'selected' : '' }}>{{ $th }}</option>
+      <select name="tahun" id="tahun" class="form-control" onchange="document.getElementById('filter-form').submit()" required>
+        @foreach($tahunListOptions as $th)
+          <option value="{{ $th }}" {{ (request('tahun') ?: $tahun) == $th ? 'selected' : '' }}>{{ $th }}</option>
         @endforeach
       </select>
     </div>

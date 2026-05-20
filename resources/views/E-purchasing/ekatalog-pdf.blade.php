@@ -1,5 +1,7 @@
 @php
-  $judulVersi = $versi === 'V5' ? 'LAPORAN E-KATALOG VERSI 5 (V5)' : 'LAPORAN E-KATALOG VERSI 6 (V6)';
+  $judulVersi = $versi === 'Semua'
+                  ? 'LAPORAN E-KATALOG SEMUA VERSI'
+                  : ($versi === 'V5' ? 'LAPORAN E-KATALOG VERSI 5 (V5)' : 'LAPORAN E-KATALOG VERSI 6 (V6)');
   $judulStatus = strtoupper($status) === 'SELESAI' 
                   ? 'PAKET SELESAI'
                   : (strtoupper($status) === 'PROSES' 

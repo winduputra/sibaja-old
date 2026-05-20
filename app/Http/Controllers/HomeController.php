@@ -186,16 +186,23 @@ class HomeController extends Controller
         $totalTokoDaringNilai = $rekapTokoDaring->sum('nilai_transaksi');
 
         // ✅ Tahun tersedia
-        $availableYears = DB::table('non_tender_pengumuman')
-            ->select(DB::raw("tahun_anggaran as tahun"))
-            ->distinct()
-            ->union(
-                DB::table('tenders')
-                    ->select(DB::raw("tahun_anggaran as tahun"))
-                    ->distinct()
-            )
-            ->orderBy('tahun', 'desc')
-            ->pluck('tahun');
+        $availableYears = collect()
+            ->merge(DB::table('struktur_anggarans')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('penyedias')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('swakelolas')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('tender_selesai_data')->distinct()->pluck('tahun'))
+            ->merge(DB::table('ekatalog_v5_pakets')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('ekatalog_v6_pakets')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('swakelola_realisasi')->distinct()->pluck('tahun_anggaran'))
+            ->push($tahun)
+            ->filter()
+            ->unique()
+            ->sortDesc()
+            ->values();
+
+        if ($availableYears->isEmpty()) {
+            $availableYears = collect([$tahun]);
+        }
 
 // ✅ Definisikan tahun yang ingin digabung
 $tahunList = [2024, 2025];
@@ -225,7 +232,7 @@ foreach ($satkers as $satker) {
         ->where('pagu', '>', 0)
         ->sum('pagu');
 
-    $nilaiNonTender = DB::table('non_tender_pengumuman')
+    $nilaiNonTender = DB::table('non_tender_selesai')
         ->where('kd_satker', $satker->kd_satker)
         ->whereIn('tahun_anggaran', $tahunList)
         ->whereNotNull('pagu')
@@ -261,6 +268,7 @@ foreach ($satkers as $satker) {
 $totalPersen = $totalBelanja > 0 ? round(($totalTransaksi / $totalBelanja) * 100, 2) : 0;
 
 $today = Carbon::now();
+$dashboardRecaps = $this->buildDashboardRecaps($tahun);
 
 return view('users.home', compact(
     'today',
@@ -284,6 +292,7 @@ return view('users.home', compact(
     'totalBelanja' ,
     'totalTransaksi',
     'totalPersen' ,
+    'dashboardRecaps',
 ));
 
     }
@@ -311,6 +320,191 @@ return view('users.home', compact(
     // Mengembalikan data dalam format JSON untuk digunakan oleh frontend
     return response()->json(['chart2Data' => $chart2Data]);
 }
+
+    private function buildDashboardRecaps($tahun)
+    {
+        $satkers = $this->dashboardSatkers($tahun);
+        $penyediaPlanning = $this->penyediaPlanningBySatker($tahun);
+        $tenderPlanning = $this->penyediaPlanningBySatker($tahun, 'tender');
+        $epurchasingPlanning = $this->penyediaPlanningBySatker($tahun, 'epurchasing');
+        $swakelolaPlanning = $this->swakelolaPlanningBySatker($tahun);
+
+        $tenderRealisasi = $this->combineDashboardAggregates([
+            DB::table('tender_pengumuman_data')
+                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+                ->where('tahun', $tahun)
+                ->where('status_tender', 'Selesai')
+                ->whereNotNull('nama_satker')
+                ->groupBy('nama_satker')
+                ->get(),
+        ]);
+
+        $nonTenderRealisasi = $this->combineDashboardAggregates([
+            DB::table('non_tender_selesai')
+                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+                ->where('tahun_anggaran', $tahun)
+                ->where('status_nontender', 'Selesai')
+                ->whereNotNull('nama_satker')
+                ->groupBy('nama_satker')
+                ->get(),
+        ]);
+
+        $epurchasingRealisasi = $this->combineDashboardAggregates([
+            DB::table('ekatalog_v5_pakets')
+                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
+                ->where('tahun_anggaran', $tahun)
+                ->where('paket_status_str', 'Paket Selesai')
+                ->whereNotNull('nama_satker')
+                ->groupBy('nama_satker')
+                ->get(),
+            DB::table('ekatalog_v6_pakets')
+                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
+                ->where('tahun_anggaran', $tahun)
+                ->where('status_pkt', 'ON_PROCESS')
+                ->whereNotNull('nama_satker')
+                ->groupBy('nama_satker')
+                ->get(),
+        ]);
+
+        $swakelolaRealisasi = $this->combineDashboardAggregates([
+            DB::table('swakelola_realisasi')
+                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
+                ->where('tahun_anggaran', $tahun)
+                ->whereNotNull('nama_satker')
+                ->groupBy('nama_satker')
+                ->get(),
+        ]);
+
+        $totalPlanning = $this->combineDashboardAggregates([$penyediaPlanning->values(), $swakelolaPlanning->values()]);
+        $totalRealisasi = $this->combineDashboardAggregates([$tenderRealisasi->values(), $nonTenderRealisasi->values(), $epurchasingRealisasi->values(), $swakelolaRealisasi->values()]);
+
+        return [
+            'overall' => [
+                'title' => 'Rekapitulasi Pengadaan Pada Pemerintah Provinsi Lampung',
+                'subtitle' => 'Rencana pengadaan RUP dibandingkan realisasi tender, e-purchasing, dan swakelola.',
+                'rows' => $this->dashboardRecapRows($satkers, $totalPlanning, $totalRealisasi),
+            ],
+            'tender' => [
+                'title' => 'Rekapitulasi Pengadaan Melalui Tender',
+                'subtitle' => 'Rencana penyedia metode tender dibandingkan tender selesai.',
+                'rows' => $this->dashboardRecapRows($satkers, $tenderPlanning, $tenderRealisasi),
+            ],
+            'epurchasing' => [
+                'title' => 'Rekapitulasi Pengadaan Melalui E-Purchasing',
+                'subtitle' => 'Rencana penyedia metode e-purchasing dibandingkan paket e-katalog selesai.',
+                'rows' => $this->dashboardRecapRows($satkers, $epurchasingPlanning, $epurchasingRealisasi),
+            ],
+            'swakelola' => [
+                'title' => 'Rekapitulasi Pengadaan Melalui Swakelola',
+                'subtitle' => 'Rencana swakelola dibandingkan realisasi swakelola.',
+                'rows' => $this->dashboardRecapRows($satkers, $swakelolaPlanning, $swakelolaRealisasi),
+            ],
+        ];
+    }
+
+    private function dashboardSatkers($tahun)
+    {
+        $satkers = DB::table('struktur_anggarans')
+            ->select('kd_satker', 'nama_satker')
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->whereNotNull('nama_satker')
+            ->orderBy('nama_satker')
+            ->get();
+
+        if ($satkers->isEmpty()) {
+            $satkers = DB::table('penyedias')
+                ->select('kd_satker', 'nama_satker')
+                ->where('tahun_anggaran', $tahun)
+                ->where('kd_klpd', 'D264')
+                ->whereNotNull('nama_satker')
+                ->distinct()
+                ->orderBy('nama_satker')
+                ->get();
+        }
+
+        return $satkers->unique('nama_satker')->values();
+    }
+
+    private function penyediaPlanningBySatker($tahun, $metode = null)
+    {
+        $query = DB::table('penyedias')
+            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->whereNotNull('nama_satker');
+
+        if ($metode === 'tender') {
+            $query->where(function ($query) {
+                $query->where('metode_pengadaan', 'like', '%Tender%')
+                    ->orWhere('metode_pengadaan', 'like', '%Seleksi%');
+            });
+        }
+
+        if ($metode === 'epurchasing') {
+            $query->where(function ($query) {
+                $query->where('metode_pengadaan', 'like', '%Purchasing%')
+                    ->orWhere('metode_pengadaan', 'like', '%Katalog%');
+            });
+        }
+
+        return $query->groupBy('nama_satker')->get()->keyBy('nama_satker');
+    }
+
+    private function swakelolaPlanningBySatker($tahun)
+    {
+        return DB::table('swakelolas')
+            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->whereNotNull('nama_satker')
+            ->groupBy('nama_satker')
+            ->get()
+            ->keyBy('nama_satker');
+    }
+
+    private function combineDashboardAggregates($collections)
+    {
+        $combined = collect();
+
+        foreach ($collections as $collection) {
+            foreach ($collection as $row) {
+                $namaSatker = $row->nama_satker;
+                $current = $combined->get($namaSatker, (object) [
+                    'nama_satker' => $namaSatker,
+                    'paket' => 0,
+                    'nilai' => 0,
+                ]);
+
+                $current->paket += (int) ($row->paket ?? 0);
+                $current->nilai += (float) ($row->nilai ?? 0);
+
+                $combined->put($namaSatker, $current);
+            }
+        }
+
+        return $combined;
+    }
+
+    private function dashboardRecapRows($satkers, $planning, $realisasi)
+    {
+        return $satkers->map(function ($satker) use ($planning, $realisasi) {
+            $namaSatker = $satker->nama_satker;
+            $rencana = $planning->get($namaSatker, (object) ['paket' => 0, 'nilai' => 0]);
+            $realisasiSatker = $realisasi->get($namaSatker, (object) ['paket' => 0, 'nilai' => 0]);
+            $pagu = (float) $rencana->nilai;
+            $nilaiRealisasi = (float) $realisasiSatker->nilai;
+
+            return [
+                'nama_satker' => $namaSatker,
+                'rencana_paket' => (int) $rencana->paket,
+                'rencana_pagu' => $pagu,
+                'realisasi_paket' => (int) $realisasiSatker->paket,
+                'realisasi_nilai' => $nilaiRealisasi,
+                'persentase' => $pagu > 0 ? round(($nilaiRealisasi / $pagu) * 100, 2) : 0,
+            ];
+        })->values();
+    }
 
 
 

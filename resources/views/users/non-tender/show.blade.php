@@ -9,7 +9,7 @@
             <h2 class="fw-bold text-primary">Detail Non Tender</h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('home') }}">Dashboard</a></li>
                     <li class="breadcrumb-item"><a href="{{ route('non-tender.list') }}">Non Tender</a></li>
                     <li class="breadcrumb-item active" aria-current="page">{{ $data->kd_nontender }}</li>
                 </ol>

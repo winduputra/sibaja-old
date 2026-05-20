@@ -20,7 +20,8 @@ class EkatalogUpdate extends Command
         foreach ([2024, 2025] as $year) {
             $this->fetchAndStore(
                 "https://isb.lkpp.go.id/isb-2/api/30fc0faf-22c8-41e9-adcf-8e8e841c9249/json/9610/Ecat-PaketEPurchasing/tipe/4:12/parameter/{$year}:{$this->klpd}",
-                EkatalogV5Paket::class
+                EkatalogV5Paket::class,
+                $year
             );
         }
 
@@ -28,20 +29,22 @@ class EkatalogUpdate extends Command
 
         $this->fetchAndStore(
             "https://isb.lkpp.go.id/isb-2/api/a95611fd-9648-452e-bc6a-1c7275ab01f3/json/31035/Ecat-PaketEPurchasingV6/tipe/4:12/parameter/2025:{$this->klpd}",
-            EkatalogV6Paket::class
+            EkatalogV6Paket::class,
+            2025
         );
 
         $this->info('✅ Semua data e-Katalog berhasil diperbarui.');
     }
 
-    protected function fetchAndStore($url, $model)
+    protected function fetchAndStore($url, $model, $year)
     {
         $response = Http::get($url);
 
         if ($response->successful()) {
             $data = $response->json();
             foreach ($data as $item) {
-                $model::create($item);
+                $item['tahun_anggaran'] = $item['tahun_anggaran'] ?? $year;
+                $model::updateOrCreate($model::uniqueKeys($item), $item);
 
             }
             $this->info("✔ Data disimpan untuk model: {$model}");
@@ -50,4 +53,3 @@ class EkatalogUpdate extends Command
         }
     }
 }
-

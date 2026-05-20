@@ -19,67 +19,9 @@ class EkatalogReportController extends Controller
         $satker = $request->input('satker', 'Semua');
         $status = $request->input('status', 'Semua');
 
-        // Pilih model berdasarkan versi e-Katalog
-        $model = $versi === 'V6' ? new EkatalogV6Paket() : new EkatalogV5Paket();
-        $query = $model->newQuery()->where('tahun_anggaran', $tahun);
+        $daftarSatker = $this->getEkatalogSatkerMap($tahun, $versi);
 
-        if ($versi === 'V6') {
-            $query->whereNotNull('nama_satker');
-        }
-
-        // Filter status berdasarkan versi
-        if ($status !== 'Semua') {
-            if ($versi === 'V5') {
-                $query->where('paket_status_str', 'Paket ' . $status);
-            } else {
-                if (strtoupper($status) === 'PROSES') {
-                    $query->where('status_pkt', 'ON_PROCESS');
-                } elseif (strtoupper($status) === 'SELESAI' || strtoupper($status) === 'COMPLETED') {
-                    $query->whereIn('status_pkt', ['COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM']);
-                }
-            }
-        }
-
-        $rawData = $query->get();
-
-        // Ambil daftar nama satker langsung dari tabel Satker (V5 dan V6)
-        $daftarSatker = Satker::where('tahun_anggaran', $tahun)
-            ->where('kd_satker', '<>', '350504')  // Skip satker dengan kd_satker 350504
-            ->pluck('nama_satker', 'kd_satker');
-
-        // Rekap per kd_paket
-        $groupedData = $rawData->groupBy('kd_paket');
-
-        $data = $groupedData->map(function ($items, $kd_paket) use ($versi, $daftarSatker) {
-            $item = $items->first();
-
-            $nama_satker = $versi === 'V6'
-                ? $item->nama_satker  // Untuk V6, nama satker langsung diambil dari paket
-                : ($daftarSatker[$item->satker_id] ?? '-'); // Untuk V5, diambil dari daftar Satker
-
-            $status_raw = $versi === 'V6' ? $item->status_pkt : $item->paket_status_str;
-
-            $status_label = '';
-            if ($versi === 'V6') {
-                if (strtoupper($status_raw) === 'ON_PROCESS') {
-                    $status_label = 'Paket Proses';
-                } elseif (in_array(strtoupper($status_raw), ['COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM'])) {
-                    $status_label = 'Paket Selesai';
-                } else {
-                    $status_label = $status_raw;
-                }
-            } else {
-                $status_label = $status_raw;
-            }
-
-            return [
-                'id_rup'        => $versi === 'V6' ? ($item->rup_code ?? '-') : ($item->kd_rup ?? '-'),
-                'nama_satker'   => $nama_satker,
-                'nama_paket'    => $versi === 'V6' ? ($item->rup_name ?? '-') : ($item->nama_paket ?? '-'),
-                'status'        => $status_label,
-                'nilai_kontrak' => $items->sum('total_harga'),
-            ];
-        })->values();
+        $data = $this->collectEkatalogData($tahun, $versi, $status, $daftarSatker);
 
         // Filter satker jika dipilih
         if ($satker !== 'Semua') {
@@ -90,11 +32,7 @@ class EkatalogReportController extends Controller
         $totalNilai = $data->sum('nilai_kontrak');
 
         // Dropdown satkerList
-        $satkerList = Satker::where('tahun_anggaran', $tahun)
-            ->where('kd_satker', '<>', '350504')  // Skip satker dengan kd_satker 350504
-            ->pluck('nama_satker', 'kd_satker')
-            ->sort()
-            ->values();
+        $satkerList = $this->getSatkerList($tahun, $versi);
 
         // Fetch available years from both V5 and V6 tables
         $tahunTersedia = DB::table('ekatalog_v5_pakets')
@@ -128,61 +66,22 @@ class EkatalogReportController extends Controller
         $status = $request->input('status', 'Semua');
         $mode   = $request->input('mode', 'I');
 
-        $model = $versi === 'V6' ? new EkatalogV6Paket() : new EkatalogV5Paket();
-        $query = $model->newQuery()->where('tahun_anggaran', $tahun);
+        $daftarSatker = $this->getEkatalogSatkerMap($tahun, $versi);
 
-        if ($versi === 'V6') {
-            $query->whereNotNull('nama_satker');
-        }
-
-        // Filter status
-        if ($status !== 'Semua') {
-            if ($versi === 'V5') {
-                $query->where('paket_status_str', 'Paket ' . $status);
-            } else {
-                if (strtoupper($status) === 'PROSES') {
-                    $query->where('status_pkt', 'ON_PROCESS');
-                } elseif (strtoupper($status) === 'SELESAI' || strtoupper($status) === 'COMPLETED') {
-                    $query->whereIn('status_pkt', ['COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM']);
-                }
-            }
-        }
-
-        $rawData = $query->get();
-
-        // Ambil daftar nama satker langsung dari tabel Satker (V5 dan V6)
-        $daftarSatker = Satker::where('tahun_anggaran', $tahun)
-            ->where('kd_satker', '<>', '350504')  // Skip satker dengan kd_satker 350504
-            ->pluck('nama_satker', 'kd_satker');
-
-        $grouped = $rawData->groupBy('kd_paket');
-        $dataRekap = [];
-
-        foreach ($grouped as $items) {
-            $item = $items->first();
-            $nama_satker = $versi === 'V6'
-                ? $item->nama_satker  // Untuk V6, nama satker langsung diambil dari paket
-                : ($daftarSatker[$item->satker_id] ?? '-'); // Untuk V5, diambil dari daftar Satker
-
-            $total_harga = $items->sum('total_harga');
-
-            if (!isset($dataRekap[$nama_satker])) {
-                $dataRekap[$nama_satker] = [
-                    'total_transaksi' => 0,
-                    'nilai_transaksi' => 0,
-                ];
-            }
-
-            $dataRekap[$nama_satker]['total_transaksi'] += 1;
-            $dataRekap[$nama_satker]['nilai_transaksi'] += $total_harga;
-        }
+        $data = $this->collectEkatalogData($tahun, $versi, $status, $daftarSatker);
 
         // Filter Satker jika dipilih
         if ($satker !== 'Semua') {
-            $dataRekap = collect($dataRekap)->only([$satker])->toArray();
+            $data = $data->filter(fn($d) => $d['nama_satker'] === $satker)->values();
         }
 
-        ksort($dataRekap);
+        $dataRekap = $data->groupBy('nama_satker')
+            ->map(fn($items) => [
+                'total_transaksi' => $items->count(),
+                'nilai_transaksi' => $items->sum('nilai_kontrak'),
+            ])
+            ->sortKeys()
+            ->toArray();
 
         $tanggal = $tahun == 2024
             ? '31 Desember 2024'
@@ -208,5 +107,134 @@ class EkatalogReportController extends Controller
         $pdf->writeHTML($html);
         return $pdf->output("laporan-ekatalog-{$tahun}-{$versi}.pdf", $mode);
     }
-}
 
+    private function collectEkatalogData($tahun, $versi, $status, $daftarSatker)
+    {
+        $data = collect();
+
+        if ($versi === 'V5' || $versi === 'Semua') {
+            $data = $data->concat($this->collectEkatalogDataByVersion('V5', $tahun, $status, $daftarSatker));
+        }
+
+        if ($versi === 'V6' || $versi === 'Semua') {
+            $data = $data->concat($this->collectEkatalogDataByVersion('V6', $tahun, $status, $daftarSatker));
+        }
+
+        return $data->values();
+    }
+
+    private function collectEkatalogDataByVersion($version, $tahun, $status, $daftarSatker)
+    {
+        $model = $version === 'V6' ? new EkatalogV6Paket() : new EkatalogV5Paket();
+        $query = $model->newQuery()->where('tahun_anggaran', $tahun);
+
+        if ($version === 'V6') {
+            $query->whereNotNull('nama_satker');
+        }
+
+        $this->applyStatusFilter($query, $version, $status);
+
+        return $query->get()
+            ->groupBy('kd_paket')
+            ->map(fn($items) => $this->normalizeEkatalogGroup($items, $version, $daftarSatker))
+            ->values();
+    }
+
+    private function applyStatusFilter($query, $version, $status)
+    {
+        if ($status === 'Semua') {
+            return;
+        }
+
+        if ($version === 'V5') {
+            $query->where('paket_status_str', 'Paket ' . $status);
+            return;
+        }
+
+        if (strtoupper($status) === 'PROSES') {
+            $query->where('status_pkt', 'ON_PROCESS');
+        } elseif (in_array(strtoupper($status), ['SELESAI', 'COMPLETED'])) {
+            $query->whereIn('status_pkt', ['COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM']);
+        }
+    }
+
+    private function normalizeEkatalogGroup($items, $version, $daftarSatker)
+    {
+        $item = $items->first();
+        $isV6 = $version === 'V6';
+
+        $namaSatker = $isV6
+            ? $item->nama_satker
+            : ($item->nama_satker ?: ($daftarSatker[$item->satker_id] ?? '-'));
+
+        return [
+            'id_rup'        => $isV6 ? ($item->rup_code ?? '-') : ($item->kd_rup ?? '-'),
+            'nama_satker'   => $namaSatker,
+            'nama_paket'    => $isV6 ? ($item->rup_name ?? '-') : ($item->nama_paket ?? '-'),
+            'status'        => $this->getStatusLabel($isV6 ? $item->status_pkt : $item->paket_status_str, $version),
+            'nilai_kontrak' => $items->sum('total_harga'),
+        ];
+    }
+
+    private function getStatusLabel($status, $version)
+    {
+        if ($version === 'V5') {
+            return $status;
+        }
+
+        if (strtoupper($status) === 'ON_PROCESS') {
+            return 'Paket Proses';
+        }
+
+        if (in_array(strtoupper($status), ['COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM'])) {
+            return 'Paket Selesai';
+        }
+
+        return $status;
+    }
+
+    private function getSatkerList($tahun, $versi)
+    {
+        $satkerList = Satker::where('tahun_anggaran', $tahun)
+            ->where('kd_satker', '<>', '350504')
+            ->pluck('nama_satker');
+
+        if ($versi === 'V5' || $versi === 'Semua') {
+            $satkerList = $satkerList->concat(
+                EkatalogV5Paket::where('tahun_anggaran', $tahun)
+                    ->whereNotNull('nama_satker')
+                    ->distinct()
+                    ->pluck('nama_satker')
+            );
+        }
+
+        if ($versi === 'V6' || $versi === 'Semua') {
+            $satkerList = $satkerList->concat(
+                EkatalogV6Paket::where('tahun_anggaran', $tahun)
+                    ->whereNotNull('nama_satker')
+                    ->distinct()
+                    ->pluck('nama_satker')
+            );
+        }
+
+        return $satkerList->filter()->unique()->sort()->values();
+    }
+
+    private function getEkatalogSatkerMap($tahun, $versi)
+    {
+        $satkers = Satker::where('tahun_anggaran', $tahun)
+            ->where('kd_satker', '<>', '350504')
+            ->pluck('nama_satker', 'kd_satker');
+
+        if ($versi === 'V5' || $versi === 'Semua') {
+            $v5Satkers = EkatalogV5Paket::where('tahun_anggaran', $tahun)
+                ->whereNotNull('satker_id')
+                ->whereNotNull('nama_satker')
+                ->pluck('nama_satker', 'satker_id');
+
+            $satkers = $satkers->merge($v5Satkers);
+        }
+
+        return $satkers;
+    }
+}

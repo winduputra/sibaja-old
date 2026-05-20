@@ -43,12 +43,15 @@
 @endpush
 
 @section('content')
+@php
+  $judulVersi = $versi === 'Semua' ? 'Semua Versi' : 'Versi ' . strtoupper($versi);
+@endphp
 <section class="content py-3">
   <div class="container-fluid">
 
     {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="h4 mb-0 fw-bold text-primary">Laporan e-Katalog Versi {{ strtoupper($versi) }} - Tahun {{ $tahun }}</h2>
+      <h2 class="h4 mb-0 fw-bold text-primary">Laporan e-Katalog {{ $judulVersi }} - Tahun {{ $tahun }}</h2>
       <a href="{{ route('report.ekatalog.exportpdf', [
             'tahun' => $tahun,
             'versi' => $versi,
@@ -84,6 +87,7 @@
           <div class="col-md-auto">
             <label class="form-label small fw-bold">Versi</label>
             <select name="versi" class="form-select form-select-sm select2-filter">
+              <option value="Semua" {{ $versi == 'Semua' ? 'selected' : '' }}>Semua Versi</option>
               <option value="V5" {{ $versi == 'V5' ? 'selected' : '' }}>e-Katalog V5</option>
               <option value="V6" {{ $versi == 'V6' ? 'selected' : '' }}>e-Katalog V6</option>
             </select>

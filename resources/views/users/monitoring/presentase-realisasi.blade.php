@@ -246,15 +246,9 @@
         {{-- Pilih Tahun --}}
         <div class="col-md-3">
           <label for="tahun" class="form-label">Pilih Tahun</label>
-          <select name="tahun" id="tahun" class="form-control" onchange="submitForm()">
-            <option value="">-- Semua Tahun --</option>
-            @php
-              $tahunArray = array_map('intval', array_map('trim', explode(',', $tahun)));
-              $uniqueTahun = array_unique($tahunArray);
-              rsort($uniqueTahun);
-            @endphp
-            @foreach($uniqueTahun as $th)
-              <option value="{{ $th }}" {{ request('tahun') == $th ? 'selected' : '' }}>{{ $th }}</option>
+          <select name="tahun" id="tahun" class="form-control" onchange="submitForm()" required>
+            @foreach($tahunListOptions as $th)
+              <option value="{{ $th }}" {{ (request('tahun') ?: $tahun) == $th ? 'selected' : '' }}>{{ $th }}</option>
             @endforeach
           </select>
         </div>

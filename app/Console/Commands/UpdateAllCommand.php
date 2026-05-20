@@ -61,6 +61,12 @@ class UpdateAllCommand extends Command
                     'command' => 'inaproc:sync-non-tender',
                     'options' => ['type' => 'all'],
                 ],
+                'ekatalog-v5' => [
+                    'name' => 'E-Katalog V5 Data',
+                    'command' => 'ekatalog:update',
+                    'options' => [],
+                    'passes_global_options' => false,
+                ],
                 'ekatalog' => [
                     'name' => 'E-Katalog V6 Data',
                     'command' => 'inaproc:sync-ekatalog-v6',
@@ -105,24 +111,25 @@ class UpdateAllCommand extends Command
                 $this->printModuleHeader($module['name'], $currentModule, $moduleCount);
 
                 // Build command options
-                $options = [
+                $passesGlobalOptions = $module['passes_global_options'] ?? true;
+                $options = $passesGlobalOptions ? [
                     '--tahun' => $tahun,
-                ];
+                ] : [];
 
                 // Add module-specific options
                 foreach ($module['options'] as $optionKey => $optionValue) {
                     $options['--' . $optionKey] = $optionValue;
                 }
 
-                if ($allYears) {
+                if ($passesGlobalOptions && $allYears) {
                     $options['--all-years'] = true;
                 }
 
-                if ($dryRun) {
+                if ($passesGlobalOptions && $dryRun) {
                     $options['--dry-run'] = true;
                 }
 
-                if ($limit > 0) {
+                if ($passesGlobalOptions && $limit > 0) {
                     $options['--limit'] = $limit;
                 }
 
