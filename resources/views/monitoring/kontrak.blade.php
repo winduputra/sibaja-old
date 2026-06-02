@@ -426,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <tr>
                         <td>{{ $i + 1 }}</td>
                         <td class="text-left">
-                            <a href="{{ route('monitoring.kontrak.detail', ['satker' => urlencode($item['nama_satker'])]) }}" style="color: #1d4ed8;">
+                            <a href="{{ route('monitoring.kontrak.detail', ['satker' => urlencode($item['nama_satker']), 'tahun' => $tahun]) }}" style="color: #1d4ed8;">
                                 {{ $item['nama_satker'] }}
                             </a>
                         </td>

@@ -111,6 +111,17 @@
   .number-cell {
     width: var(--dashboard-number-width);
   }
+
+  .dashboard-filter-form .form-label {
+    color: var(--dashboard-heading);
+  }
+
+  .dashboard-week-range {
+    background-color: var(--dashboard-primary-soft);
+    border: 1px solid var(--dashboard-border);
+    border-radius: var(--dashboard-radius);
+    color: var(--dashboard-heading);
+  }
 </style>
 @endpush
 
@@ -176,18 +187,42 @@
           <h2 class="fw-bold text-primary mb-2">Rekapitulasi Pengadaan Pemerintah Provinsi Lampung</h2>
           <p class="text-muted mb-0">Ringkasan rencana RUP dan realisasi pengadaan per satuan kerja tahun {{ $tahun }}.</p>
         </div>
-        <form method="GET" action="{{ route('home') }}" class="d-flex align-items-end gap-2">
-          <div>
-            <label for="tahun" class="form-label small fw-bold mb-1">Tahun Anggaran</label>
-            <select name="tahun" id="tahun" class="form-select form-select-sm" onchange="this.form.submit()">
-              @forelse ($availableYears as $year)
-                <option value="{{ $year }}" {{ (string) $tahun === (string) $year ? 'selected' : '' }}>{{ $year }}</option>
-              @empty
-                <option value="{{ $tahun }}">{{ $tahun }}</option>
-              @endforelse
-            </select>
+        <div class="d-flex flex-column align-items-lg-end gap-2">
+          <form method="GET" action="{{ route('home') }}" class="dashboard-filter-form d-flex flex-column flex-sm-row align-items-sm-end gap-2">
+            <input type="hidden" name="kategori_chart2" value="{{ $kategoriChart2 }}">
+            <div>
+              <label for="tahun" class="form-label small fw-bold mb-1">Tahun Anggaran</label>
+              <select name="tahun" id="tahun" class="form-select form-select-sm" onchange="this.form.submit()">
+                @forelse ($availableYears as $year)
+                  <option value="{{ $year }}" {{ (string) $tahun === (string) $year ? 'selected' : '' }}>{{ $year }}</option>
+                @empty
+                  <option value="{{ $tahun }}">{{ $tahun }}</option>
+                @endforelse
+              </select>
+            </div>
+            <div>
+              <label for="bulan" class="form-label small fw-bold mb-1">Bulan</label>
+              <select name="bulan" id="bulan" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="all" {{ $selectedMonth === 'all' ? 'selected' : '' }}>Semua Bulan</option>
+                @foreach ($monthOptions as $monthNumber => $monthName)
+                  <option value="{{ $monthNumber }}" {{ (string) $selectedMonth === (string) $monthNumber ? 'selected' : '' }}>{{ $monthName }}</option>
+                @endforeach
+              </select>
+            </div>
+            <div>
+              <label for="minggu" class="form-label small fw-bold mb-1">Minggu</label>
+              <select name="minggu" id="minggu" class="form-select form-select-sm" onchange="this.form.submit()">
+                @foreach ($availableWeeks as $weekNumber => $week)
+                  <option value="{{ $weekNumber }}" {{ (string) $selectedWeek === (string) $weekNumber ? 'selected' : '' }}>{{ $week['label'] }}</option>
+                @endforeach
+              </select>
+            </div>
+          </form>
+          <div class="dashboard-week-range px-3 py-2 small fw-semibold text-lg-end">
+            <span class="dashboard-kicker d-block mb-1">Rentang Aktif</span>
+            {{ $activeWeekRange['range_label'] }}
           </div>
-        </form>
+        </div>
       </div>
     </div>
 

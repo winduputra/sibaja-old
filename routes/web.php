@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StrukturAnggaranController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MonitoringController;
+use App\Http\Controllers\PdnUmkTrackerController;
 use App\Http\Controllers\RupMonitoringController;
 
 
@@ -163,6 +164,7 @@ Route::group([
     Route::get('/non-tender/{satker}/detail/pdf', [MonitoringController::class, 'exportNonTenderDetailPdf'])->name('non_tender.detail.pdf');  
 
     // RUP Monitoring Routes
+    Route::get('/pdn-umk-tracker', [PdnUmkTrackerController::class, 'index'])->name('pdn-umk-tracker');
     Route::get('/rup', [RupMonitoringController::class, 'index'])->name('rup.index');
     Route::get('/rup/detail', [RupMonitoringController::class, 'detail'])->name('rup.detail');
     Route::get('/rup/export-pdf', [RupMonitoringController::class, 'exportPdf'])->name('rup.export-pdf');

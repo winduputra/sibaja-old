@@ -410,10 +410,10 @@
             <div class="filter-grid">
                 <!-- Tahun Anggaran Filter -->
                 <div class="filter-group">
-                    <label for="tahun_anggaran" class="filter-label">Tahun</label>
-                    <select name="tahun_anggaran" id="tahun_anggaran" class="filter-select" onchange="submitForm()">
+                    <label for="tahun" class="filter-label">Tahun</label>
+                    <select name="tahun" id="tahun" class="filter-select" onchange="submitForm()">
                         @foreach ($tahunList as $t)
-                            <option value="{{ $t }}" {{ $t == request('tahun_anggaran', $tahun) ? 'selected' : '' }}>
+                            <option value="{{ $t }}" {{ $t == request('tahun', request('tahun_anggaran', $tahun)) ? 'selected' : '' }}>
                                 {{ $t }}
                             </option>
                         @endforeach
@@ -481,7 +481,7 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('monitoring.kontrak.detail', ['satker' => urlencode($item['nama_satker'])]) }}?tahun={{ request('tahun_anggaran', $tahun) }}" 
+                                    <a href="{{ route('monitoring.kontrak.detail', ['satker' => urlencode($item['nama_satker']), 'tahun' => $tahun]) }}" 
                                        class="link-primary">
                                         {{ $item['nama_satker'] }}
                                     </a>
@@ -527,7 +527,7 @@
     <div class="summary-card">
         <div class="summary-grid">
             <div class="summary-item">
-                <div class="summary-label">Total Tender Selesai Tahun {{ request('tahun_anggaran', $tahun) }}</div>
+                <div class="summary-label">Total Tender Selesai Tahun {{ request('tahun', request('tahun_anggaran', $tahun)) }}</div>
                 <div class="summary-value amount-cell">{{ number_format($totalTenderSelesai, 0, ',', '.') }}</div>
             </div>
             <div class="summary-item">
@@ -579,7 +579,7 @@
     function resetSatkerFilter() {
         document.getElementById('satker_search').value = '';
         document.getElementById('nama_satker').value = '';
-        document.getElementById('tahun_anggaran').value = '{{ $tahun }}';
+        document.getElementById('tahun').value = '{{ $tahun }}';
         submitForm();
     }
 

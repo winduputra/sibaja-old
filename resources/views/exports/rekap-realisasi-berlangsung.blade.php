@@ -84,15 +84,12 @@
                     <th colspan="2">Tender</th>
                     <th colspan="2">Non-Tender</th>
                     <th colspan="2">E-Katalog</th>
-                    <th colspan="2">Toko Daring</th>
                 </tr>
                 <tr>
                     <th>Total Paket</th>
                     <th>Total Pagu</th>
                     <th>Total Paket</th>
                     <th>Total Pagu</th>
-                    <th>Total Paket</th>
-                    <th>Total Nilai</th>
                     <th>Total Paket</th>
                     <th>Total Nilai</th>
                 </tr>
@@ -103,7 +100,6 @@
                         'tender_paket' => 0, 'tender_nilai' => 0,
                         'nontender_paket' => 0, 'nontender_nilai' => 0,
                         'ekatalog_paket' => 0, 'ekatalog_nilai' => 0,
-                        'tokodaring_paket' => 0, 'tokodaring_nilai' => 0,
                     ];
                 @endphp
 
@@ -115,8 +111,6 @@
                         $total['nontender_nilai'] += $row['total_nilai_nontender'];
                         $total['ekatalog_paket'] += $row['total_paket_ekatalog'];
                         $total['ekatalog_nilai'] += $row['total_nilai_ekatalog'];
-                        $total['tokodaring_paket'] += $row['total_paket_tokodaring'];
-                        $total['tokodaring_nilai'] += $row['total_nilai_tokodaring'];
                     @endphp
                     <tr>
                         <td>{{ $i + 1 }}</td>
@@ -127,8 +121,6 @@
                         <td class="text-right">{{ number_format($row['total_nilai_nontender'], 0, ',', '.') }}</td>
                         <td>{{ $row['total_paket_ekatalog'] }}</td>
                         <td class="text-right">{{ number_format($row['total_nilai_ekatalog'], 0, ',', '.') }}</td>
-                        <td>{{ $row['total_paket_tokodaring'] }}</td>
-                        <td class="text-right">{{ number_format($row['total_nilai_tokodaring'], 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
 
@@ -140,8 +132,6 @@
                     <td class="text-right">{{ number_format($total['nontender_nilai'], 0, ',', '.') }}</td>
                     <td>{{ $total['ekatalog_paket'] }}</td>
                     <td class="text-right">{{ number_format($total['ekatalog_nilai'], 0, ',', '.') }}</td>
-                    <td>{{ $total['tokodaring_paket'] }}</td>
-                    <td class="text-right">{{ number_format($total['tokodaring_nilai'], 0, ',', '.') }}</td>
                 </tr>
             </tbody>
         </table>

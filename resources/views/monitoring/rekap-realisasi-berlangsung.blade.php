@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         cardContainer.innerHTML = '';
         
-        const rows = table.querySelectorAll('tr:not(.total-row)');
+        const rows = Array.from(table.querySelectorAll('tr:not(.total-row)')).filter(row => row.querySelectorAll('td').length > 1);
         const totalRow = table.querySelector('tr.total-row');
         
         if (rows.length === 0) {
@@ -479,22 +479,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 
-                <div class="card-section">
-                    <div class="section-title">
-                        <i class="fas fa-store" style="color: #f97316;"></i>
-                        Toko Daring
-                    </div>
-                    <div class="section-content">
-                        <div class="data-item">
-                            <div class="data-label">Total Paket</div>
-                            <div class="data-value">${cells[8].textContent}</div>
-                        </div>
-                        <div class="data-item">
-                            <div class="data-label">Total Nilai</div>
-                            <div class="data-value amount">${cells[9].textContent}</div>
-                        </div>
-                    </div>
-                </div>
             `;
             cardContainer.appendChild(card);
         });
@@ -519,11 +503,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="section-content">
                         <div class="data-item">
                             <div class="data-label">Total Paket</div>
-                            <div class="data-value">${totalCells[2].textContent}</div>
+                            <div class="data-value">${totalCells[1].textContent}</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">Total Pagu</div>
-                            <div class="data-value amount">${totalCells[3].textContent}</div>
+                            <div class="data-value amount">${totalCells[2].textContent}</div>
                         </div>
                     </div>
                 </div>
@@ -536,11 +520,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="section-content">
                         <div class="data-item">
                             <div class="data-label">Total Paket</div>
-                            <div class="data-value">${totalCells[4].textContent}</div>
+                            <div class="data-value">${totalCells[3].textContent}</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">Total Pagu</div>
-                            <div class="data-value amount">${totalCells[5].textContent}</div>
+                            <div class="data-value amount">${totalCells[4].textContent}</div>
                         </div>
                     </div>
                 </div>
@@ -553,31 +537,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="section-content">
                         <div class="data-item">
                             <div class="data-label">Total Paket</div>
-                            <div class="data-value">${totalCells[6].textContent}</div>
+                            <div class="data-value">${totalCells[5].textContent}</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">Total Nilai</div>
-                            <div class="data-value amount">${totalCells[7].textContent}</div>
+                            <div class="data-value amount">${totalCells[6].textContent}</div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="card-section">
-                    <div class="section-title">
-                        <i class="fas fa-store" style="color: #f97316;"></i>
-                        Toko Daring
-                    </div>
-                    <div class="section-content">
-                        <div class="data-item">
-                            <div class="data-label">Total Paket</div>
-                            <div class="data-value">${totalCells[8].textContent}</div>
-                        </div>
-                        <div class="data-item">
-                            <div class="data-label">Total Nilai</div>
-                            <div class="data-value amount">${totalCells[9].textContent}</div>
-                        </div>
-                    </div>
-                </div>
             `;
             cardContainer.appendChild(totalCard);
         }
@@ -610,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="filter-group">
             <label for="tahun">Tahun:</label>
             <select name="tahun" id="tahun" onchange="document.getElementById('filter-form').submit()">
-                @foreach([2024, 2025] as $th)
+                @foreach(($tahunListOptions ?? [2026, 2025, 2024]) as $th)
                     <option value="{{ $th }}" {{ $tahun == $th ? 'selected' : '' }}>{{ $th }}</option>
                 @endforeach
             </select>
@@ -643,15 +611,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     <th colspan="2" style="background-color: #bbf7d0;">Tender</th>
                     <th colspan="2" style="background-color: #fef9c3;">Non-Tender</th>
                     <th colspan="2" style="background-color: #bfdbfe;">E-Katalog</th>
-                    <th colspan="2" style="background-color: #fed7aa;">Toko Daring</th>
                 </tr>
                 <tr>
                     <th>Total Paket</th>
                     <th>Total Pagu</th>
                     <th>Total Paket</th>
                     <th>Total Pagu</th>
-                    <th>Total Paket</th>
-                    <th>Total Nilai</th>
                     <th>Total Paket</th>
                     <th>Total Nilai</th>
                 </tr>
@@ -662,7 +627,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         'tender_paket' => 0, 'tender_nilai' => 0,
                         'nontender_paket' => 0, 'nontender_nilai' => 0,
                         'ekatalog_paket' => 0, 'ekatalog_nilai' => 0,
-                        'tokodaring_paket' => 0, 'tokodaring_nilai' => 0,
                     ];
                 @endphp
 
@@ -674,8 +638,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         $total['nontender_nilai'] += $row['total_nilai_nontender'];
                         $total['ekatalog_paket'] += $row['total_paket_ekatalog'];
                         $total['ekatalog_nilai'] += $row['total_nilai_ekatalog'];
-                        $total['tokodaring_paket'] += $row['total_paket_tokodaring'];
-                        $total['tokodaring_nilai'] += $row['total_nilai_tokodaring'];
                     @endphp
                     <tr>
                         <td>{{ $i + 1 }}</td>
@@ -686,12 +648,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td class="text-right">{{ number_format($row['total_nilai_nontender'], 0, ',', '.') }}</td>
                         <td>{{ $row['total_paket_ekatalog'] }}</td>
                         <td class="text-right">{{ number_format($row['total_nilai_ekatalog'], 0, ',', '.') }}</td>
-                        <td>{{ $row['total_paket_tokodaring'] }}</td>
-                        <td class="text-right">{{ number_format($row['total_nilai_tokodaring'], 0, ',', '.') }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="12" style="text-align: center; font-style: italic; color: #64748b; padding: 20px;">
+                        <td colspan="8" style="text-align: center; font-style: italic; color: #64748b; padding: 20px;">
                             Tidak ada data tersedia untuk tahun {{ $tahun }}.
                         </td>
                     </tr>
@@ -706,8 +666,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td class="text-right">{{ number_format($total['nontender_nilai'], 0, ',', '.') }}</td>
                         <td>{{ $total['ekatalog_paket'] }}</td>
                         <td class="text-right">{{ number_format($total['ekatalog_nilai'], 0, ',', '.') }}</td>
-                        <td>{{ $total['tokodaring_paket'] }}</td>
-                        <td class="text-right">{{ number_format($total['tokodaring_nilai'], 0, ',', '.') }}</td>
                     </tr>
                 @endif
             </tbody>

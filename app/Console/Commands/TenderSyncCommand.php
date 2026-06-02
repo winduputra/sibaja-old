@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\KontrakData;
 use App\Models\TenderPengumumanData;
 use App\Models\TenderSelesaiNilaiData;
 use App\Services\InaprocinaproApiClient;
@@ -169,9 +170,7 @@ class TenderSyncCommand extends Command
                     }
 
                     try {
-                        // Validate required fields (nilai_kontrak can be optional)
-                        $required = ['jenis_kontrak', 'kd_satker', 'kd_tender', 'nama_paket',
-                                   'nama_satker', 'status_kontrak'];
+                        $required = ['kd_tender'];
 
                         foreach ($required as $field) {
                             if (!\array_key_exists($field, $item) || $item[$field] === null) {
@@ -182,8 +181,10 @@ class TenderSyncCommand extends Command
                         $transformed = TenderTransformer::ekontrakKontrak($item, $tahun);
 
                         if (!$this->dryRun) {
-                            // Save to tender table or ekontrak-specific table
-                            // Adjust model based on your actual schema
+                            KontrakData::updateOrCreate(
+                                ['kd_tender' => $transformed['kd_tender']],
+                                $transformed
+                            );
                         }
 
                         $localSynced++;
@@ -234,7 +235,7 @@ class TenderSyncCommand extends Command
                             }
                         }
 
-                        $transformed = TenderTransformer::selesaiNilai($item);
+                        $transformed = TenderTransformer::selesaiNilai($item, $tahun);
 
                         if (!$this->dryRun) {
                             TenderSelesaiNilaiData::updateOrCreate(

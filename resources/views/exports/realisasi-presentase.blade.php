@@ -49,51 +49,48 @@
             <tr>
                 <th>No</th>
                 <th>Nama Satker</th>
-                <th>Anggaran Belanja Pengadaan</th>
-                <th>Total Realisasi Pengadaan <br><span style="font-size: 10px;">(Tender, Non-Tender, E-Katalog, Toko Daring)</span></th>
-                <th>Persentase Realisasi <br><span style="font-size: 10px;">(D / C × 100%)</span></th>
-            </tr>
-            <tr>
-                <th>A</th>
-                <th>B</th>
-                <th>C</th>
-                <th>D</th>
-                <th>E</th>
+                <th>Pagu RUP Penyedia</th>
+                <th>Realisasi Penyedia<br><span style="font-size: 10px;">(Tender, Non-Tender, E-Purchasing)</span></th>
+                <th>% Penyedia</th>
+                <th>Pagu RUP Swakelola</th>
+                <th>Realisasi Swakelola</th>
+                <th>% Swakelola</th>
+                <th>Total Pagu Keseluruhan</th>
+                <th>Total Realisasi Keseluruhan</th>
+                <th>% Global</th>
             </tr>
         </thead>
         <tbody>
-            @php
-                $totalBelanja = 0;
-                $totalTransaksi = 0;
-                $totalPersen = 0;
-            @endphp
-
             @foreach($data as $index => $item)
-                @php
-                    $totalBelanja += $item->belanja_pengadaan;
-                    $totalTransaksi += $item->total_transaksi;
-                    $totalPersen += $item->presentase_realisasi;
-                @endphp
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td class="text-left">{{ $item->nama_satker }}</td>
-                    <td>{{ number_format($item->belanja_pengadaan, 0, ',', '.') }}</td>
-                    <td>{{ number_format($item->total_transaksi, 0, ',', '.') }}</td>
-                    <td>{{ number_format($item->presentase_realisasi, 2, ',', '.') }}%</td>
+                    <td>{{ number_format($item->pagu_penyedia, 0, ',', '.') }}</td>
+                    <td>{{ number_format($item->realisasi_penyedia, 0, ',', '.') }}</td>
+                    <td>{{ number_format($item->persentase_penyedia, 2, ',', '.') }}%</td>
+                    <td>{{ number_format($item->pagu_swakelola, 0, ',', '.') }}</td>
+                    <td>{{ number_format($item->realisasi_swakelola, 0, ',', '.') }}</td>
+                    <td>{{ number_format($item->persentase_swakelola, 2, ',', '.') }}%</td>
+                    <td>{{ number_format($item->pagu_global, 0, ',', '.') }}</td>
+                    <td>{{ number_format($item->realisasi_global, 0, ',', '.') }}</td>
+                    <td>{{ number_format($item->persentase_global, 2, ',', '.') }}%</td>
                 </tr>
             @endforeach
 
-            @php
-                $jumlahData = $data->count();
-                $rataPersen = $jumlahData > 0 ? $totalPersen / $jumlahData : 0;
-            @endphp
+            @php $jumlahData = $data->count(); @endphp
 
             @if($jumlahData > 0)
                 <tr class="total-row">
                     <td colspan="2">TOTAL</td>
-                    <td>{{ number_format($totalBelanja, 0, ',', '.') }}</td>
-                    <td>{{ number_format($totalTransaksi, 0, ',', '.') }}</td>
-                    <td>{{ number_format($rataPersen, 2, ',', '.') }}%</td>
+                    <td>{{ number_format($summary->pagu_penyedia, 0, ',', '.') }}</td>
+                    <td>{{ number_format($summary->realisasi_penyedia, 0, ',', '.') }}</td>
+                    <td>{{ number_format($summary->persentase_penyedia, 2, ',', '.') }}%</td>
+                    <td>{{ number_format($summary->pagu_swakelola, 0, ',', '.') }}</td>
+                    <td>{{ number_format($summary->realisasi_swakelola, 0, ',', '.') }}</td>
+                    <td>{{ number_format($summary->persentase_swakelola, 2, ',', '.') }}%</td>
+                    <td>{{ number_format($summary->pagu_global, 0, ',', '.') }}</td>
+                    <td>{{ number_format($summary->realisasi_global, 0, ',', '.') }}</td>
+                    <td>{{ number_format($summary->persentase_global, 2, ',', '.') }}%</td>
                 </tr>
             @endif
         </tbody>

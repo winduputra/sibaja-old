@@ -273,6 +273,12 @@
         RUP Monitoring
       </a>
     </li>
+    <li>
+      <a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('monitoring.pdn-umk-tracker') ? 'active' : '' }}" 
+         href="{{ route('monitoring.pdn-umk-tracker') }}">
+        PDN/UMK Tracker
+      </a>
+    </li>
 
     <li class="dropdown-submenu position-relative">
   <a class="dropdown-item d-flex justify-content-between align-items-center px-3 py-2"

@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <strong>Satker:</strong> {{ $satker }}
     </div>
 
-    <a href="{{ route('monitoring.kontrak.detail.pdf', ['tahun' => request('tahun'), 'satker' => request('satker')]) }}"
+    <a href="{{ route('monitoring.kontrak.detail.pdf', ['satker' => urlencode($satker), 'tahun' => $tahun]) }}"
        target="_blank"
        class="export-btn">
         📄 Export PDF

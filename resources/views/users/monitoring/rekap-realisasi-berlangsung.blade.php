@@ -153,7 +153,7 @@
     <form method="GET" id="filter-form">
         <label for="tahun">Tahun:</label>
         <select name="tahun" id="tahun" onchange="document.getElementById('filter-form').submit()">
-            @foreach([2024, 2025] as $th)
+            @foreach(($tahunListOptions ?? [2026, 2025, 2024]) as $th)
                 <option value="{{ $th }}" {{ $tahun == $th ? 'selected' : '' }}>{{ $th }}</option>
             @endforeach
         </select>
@@ -182,15 +182,12 @@
                     <th colspan="2" class="bg-green">Tender</th>
                     <th colspan="2" class="bg-yellow">Non-Tender</th>
                     <th colspan="2" class="bg-blue">E-Katalog</th>
-                    <th colspan="2" class="bg-orange">Toko Daring</th>
                 </tr>
                 <tr>
                     <th>Total Paket</th>
                     <th>Total Pagu</th>
                     <th>Total Paket</th>
                     <th>Total Pagu</th>
-                    <th>Total Paket</th>
-                    <th>Total Nilai</th>
                     <th>Total Paket</th>
                     <th>Total Nilai</th>
                 </tr>
@@ -201,7 +198,6 @@
                         'tender_paket' => 0, 'tender_nilai' => 0,
                         'nontender_paket' => 0, 'nontender_nilai' => 0,
                         'ekatalog_paket' => 0, 'ekatalog_nilai' => 0,
-                        'tokodaring_paket' => 0, 'tokodaring_nilai' => 0,
                     ];
                 @endphp
 
@@ -213,8 +209,6 @@
                         $total['nontender_nilai'] += $row['total_nilai_nontender'];
                         $total['ekatalog_paket'] += $row['total_paket_ekatalog'];
                         $total['ekatalog_nilai'] += $row['total_nilai_ekatalog'];
-                        $total['tokodaring_paket'] += $row['total_paket_tokodaring'];
-                        $total['tokodaring_nilai'] += $row['total_nilai_tokodaring'];
                     @endphp
                     <tr>
                         <td>{{ $i + 1 }}</td>
@@ -225,12 +219,10 @@
                         <td class="text-right">{{ number_format($row['total_nilai_nontender'], 0, ',', '.') }}</td>
                         <td>{{ $row['total_paket_ekatalog'] }}</td>
                         <td class="text-right">{{ number_format($row['total_nilai_ekatalog'], 0, ',', '.') }}</td>
-                        <td>{{ $row['total_paket_tokodaring'] }}</td>
-                        <td class="text-right">{{ number_format($row['total_nilai_tokodaring'], 0, ',', '.') }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="12" class="no-data">Tidak ada data tersedia untuk tahun {{ $tahun }}.</td>
+                        <td colspan="8" class="no-data">Tidak ada data tersedia untuk tahun {{ $tahun }}.</td>
                     </tr>
                 @endforelse
 
@@ -243,8 +235,6 @@
                         <td class="text-right">{{ number_format($total['nontender_nilai'], 0, ',', '.') }}</td>
                         <td>{{ $total['ekatalog_paket'] }}</td>
                         <td class="text-right">{{ number_format($total['ekatalog_nilai'], 0, ',', '.') }}</td>
-                        <td>{{ $total['tokodaring_paket'] }}</td>
-                        <td class="text-right">{{ number_format($total['tokodaring_nilai'], 0, ',', '.') }}</td>
                     </tr>
                 @endif
             </tbody>

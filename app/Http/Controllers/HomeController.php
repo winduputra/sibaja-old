@@ -21,6 +21,12 @@ class HomeController extends Controller
     {
         $tahun = $request->input('tahun', Carbon::now()->year);
         $kategoriChart2 = $request->input('kategori_chart2', 'non_tender'); // default: non_tender
+        $dashboardFilter = $this->resolveDashboardWeekFilter($request, $tahun);
+        $monthOptions = $this->dashboardMonthOptions();
+        $selectedMonth = $dashboardFilter['month'];
+        $selectedWeek = $dashboardFilter['week'];
+        $availableWeeks = $dashboardFilter['weeks'];
+        $activeWeekRange = $dashboardFilter['range'];
 
         
         // ✅ Box summary count
@@ -268,7 +274,7 @@ foreach ($satkers as $satker) {
 $totalPersen = $totalBelanja > 0 ? round(($totalTransaksi / $totalBelanja) * 100, 2) : 0;
 
 $today = Carbon::now();
-$dashboardRecaps = $this->buildDashboardRecaps($tahun);
+$dashboardRecaps = $this->buildDashboardRecaps($tahun, $activeWeekRange);
 
 return view('users.home', compact(
     'today',
@@ -293,6 +299,11 @@ return view('users.home', compact(
     'totalTransaksi',
     'totalPersen' ,
     'dashboardRecaps',
+    'monthOptions',
+    'selectedMonth',
+    'selectedWeek',
+    'availableWeeks',
+    'activeWeekRange',
 ));
 
     }
@@ -321,7 +332,138 @@ return view('users.home', compact(
     return response()->json(['chart2Data' => $chart2Data]);
 }
 
-    private function buildDashboardRecaps($tahun)
+    private function resolveDashboardWeekFilter(Request $request, $tahun)
+    {
+        $year = (int) $tahun;
+        $requestedMonth = $request->input('bulan');
+        $month = $requestedMonth === 'all' ? 'all' : (int) $request->input('bulan', Carbon::now()->year === $year ? Carbon::now()->month : 1);
+
+        if ($month !== 'all' && ($month < 1 || $month > 12)) {
+            $month = Carbon::now()->year === $year ? Carbon::now()->month : 1;
+        }
+
+        $weeks = $this->dashboardWeeksForMonth($year, $month);
+        $defaultWeek = $month === 'all' ? 'all' : $this->dashboardDefaultWeek($weeks, $year, $month);
+        $requestedWeek = $request->input('minggu', $defaultWeek);
+        $week = $weeks->has($requestedWeek) ? $requestedWeek : $defaultWeek;
+
+        return [
+            'month' => $month,
+            'week' => $week,
+            'weeks' => $weeks,
+            'range' => $weeks->get($week),
+        ];
+    }
+
+    private function dashboardWeeksForMonth($tahun, $bulan)
+    {
+        if ($bulan === 'all') {
+            $start = Carbon::create((int) $tahun, 1, 1)->startOfDay();
+            $end = Carbon::create((int) $tahun, 12, 31)->endOfDay();
+
+            return collect([
+                'all' => [
+                    'number' => 'all',
+                    'start' => $start,
+                    'end' => $end,
+                    'label' => 'Semua Minggu',
+                    'range_label' => 'Semua tahun ' . $tahun,
+                ],
+            ]);
+        }
+
+        $monthStart = Carbon::create((int) $tahun, (int) $bulan, 1)->startOfDay();
+        $monthEnd = $monthStart->copy()->endOfMonth();
+        $weekStart = $monthStart->copy();
+
+        $weeks = collect([
+            'all' => [
+                'number' => 'all',
+                'start' => $monthStart->copy(),
+                'end' => $monthEnd->copy(),
+                'label' => 'Semua Minggu',
+                'range_label' => 'Semua minggu bulan ' . $this->dashboardMonthOptions()->get((int) $bulan) . ' ' . $tahun,
+            ],
+        ]);
+
+        while (!$weekStart->isFriday()) {
+            $weekStart->addDay();
+        }
+
+        $weekNumber = 1;
+
+        while ($weekStart->lte($monthEnd)) {
+            $start = $weekStart->copy()->startOfDay();
+            $end = $weekStart->copy()->addDays(6)->endOfDay();
+
+            $weeks->put((string) $weekNumber, [
+                'number' => $weekNumber,
+                'start' => $start,
+                'end' => $end,
+                'label' => 'Minggu ' . $weekNumber,
+                'range_label' => $this->dashboardDateLabel($start, $end),
+            ]);
+
+            $weekStart->addWeek();
+            $weekNumber++;
+        }
+
+        return $weeks;
+    }
+
+    private function dashboardDefaultWeek($weeks, $tahun, $bulan)
+    {
+        $today = Carbon::now();
+
+        if ($today->year === (int) $tahun && $today->month === (int) $bulan) {
+            foreach ($weeks as $weekNumber => $range) {
+                if ($weekNumber === 'all') {
+                    continue;
+                }
+
+                if ($today->gte($range['start']) && $today->lte($range['end'])) {
+                    return $weekNumber;
+                }
+            }
+        }
+
+        return $weeks->keys()->first(fn ($weekNumber) => $weekNumber !== 'all') ?? 'all';
+    }
+
+    private function dashboardMonthOptions()
+    {
+        return collect([
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ]);
+    }
+
+    private function dashboardDateLabel(Carbon $start, Carbon $end)
+    {
+        return $start->format('d') . ' ' . $this->dashboardMonthOptions()->get($start->month) . ' ' . $start->year
+            . ' - ' . $end->format('d') . ' ' . $this->dashboardMonthOptions()->get($end->month) . ' ' . $end->year;
+    }
+
+    private function applyDashboardDateRange($query, $column, $dateRange)
+    {
+        if (!$dateRange) {
+            return $query;
+        }
+
+        return $query->whereBetween($column, [$dateRange['start'], $dateRange['end']]);
+    }
+
+    private function buildDashboardRecaps($tahun, $dateRange = null)
     {
         $satkers = $this->dashboardSatkers($tahun);
         $penyediaPlanning = $this->penyediaPlanningBySatker($tahun);
@@ -329,41 +471,42 @@ return view('users.home', compact(
         $epurchasingPlanning = $this->penyediaPlanningBySatker($tahun, 'epurchasing');
         $swakelolaPlanning = $this->swakelolaPlanningBySatker($tahun);
 
+        $tenderQuery = DB::table('tender_pengumuman_data')
+            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun', $tahun)
+            ->where('status_tender', '!=', 'Gagal/Batal')
+            ->whereNotNull('nama_satker')
+            ->groupBy('nama_satker');
+
+        $nonTenderQuery = DB::table('non_tender_pengumuman')
+            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('status_nontender', '!=', 'Gagal/Batal')
+            ->whereNotNull('nama_satker')
+            ->groupBy('nama_satker');
+
+
+        $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
+            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->whereIn('status_pkt', ['ON_PROCESS', 'COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM'])
+            ->whereNotNull('nama_satker')
+            ->groupBy('nama_satker');
+
+        $this->applyDashboardDateRange($tenderQuery, 'tgl_pengumuman_tender', $dateRange);
+        $this->applyDashboardDateRange($nonTenderQuery, 'tgl_pengumuman_nontender', $dateRange);
+        $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange);
+
         $tenderRealisasi = $this->combineDashboardAggregates([
-            DB::table('tender_pengumuman_data')
-                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-                ->where('tahun', $tahun)
-                ->where('status_tender', 'Selesai')
-                ->whereNotNull('nama_satker')
-                ->groupBy('nama_satker')
-                ->get(),
+            $tenderQuery->get(),
         ]);
 
         $nonTenderRealisasi = $this->combineDashboardAggregates([
-            DB::table('non_tender_selesai')
-                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-                ->where('tahun_anggaran', $tahun)
-                ->where('status_nontender', 'Selesai')
-                ->whereNotNull('nama_satker')
-                ->groupBy('nama_satker')
-                ->get(),
+            $nonTenderQuery->get(),
         ]);
 
         $epurchasingRealisasi = $this->combineDashboardAggregates([
-            DB::table('ekatalog_v5_pakets')
-                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
-                ->where('tahun_anggaran', $tahun)
-                ->where('paket_status_str', 'Paket Selesai')
-                ->whereNotNull('nama_satker')
-                ->groupBy('nama_satker')
-                ->get(),
-            DB::table('ekatalog_v6_pakets')
-                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
-                ->where('tahun_anggaran', $tahun)
-                ->where('status_pkt', 'ON_PROCESS')
-                ->whereNotNull('nama_satker')
-                ->groupBy('nama_satker')
-                ->get(),
+            $ekatalogV6Query->get(),
         ]);
 
         $swakelolaRealisasi = $this->combineDashboardAggregates([

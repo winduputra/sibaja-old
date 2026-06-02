@@ -107,3 +107,12 @@ https://isb.lkpp.go.id/isb-2/api/f9a6ed98-0cee-4d6b-8057-bf8461461dcb/json/9624/
      - get from API "Struktur Anggaran PD"
    - Total Anggaran RUP Per OPD
 # sibajalpg
+
+
+## UPDATE NEW
+- Tracking PDN By Packets
+  - Sort by OPD
+  - Sort by Year
+  - Sort by 'Metode Pengadaan'
+
+- Tracking RUP Belum Terlaksanakan (Semua Metode Pengadaan)

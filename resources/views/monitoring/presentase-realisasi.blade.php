@@ -340,23 +340,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 
                 <div class="card-section">
-                    <div class="section-title">Pengadaan</div>
+                    <div class="section-title">Global</div>
                     <div class="section-content">
                         <div class="data-item">
-                            <div class="data-label">Anggaran</div>
-                            <div class="data-value">${cells[2].textContent}</div>
+                            <div class="data-label">Total Pagu</div>
+                            <div class="data-value">${cells[8].textContent}</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">Realisasi</div>
-                            <div class="data-value">${cells[3].textContent}</div>
+                            <div class="data-value">${cells[9].textContent}</div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="card-section">
                     <div class="data-item" style="grid-column: span 2;">
-                        <div class="data-label">Presentase Realisasi</div>
-                        <div class="data-value"><strong>${cells[4].innerText}</strong></div>
+                        <div class="data-label">Persentase Global</div>
+                        <div class="data-value"><strong>${cells[10].innerText}</strong></div>
                     </div>
                 </div>
             `;
@@ -379,19 +379,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="section-content">
                         <div class="data-item">
                             <div class="data-label">Total Anggaran</div>
-                            <div class="data-value">${totalCells[2].textContent}</div>
+                            <div class="data-value">${totalCells[7].textContent}</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">Total Realisasi</div>
-                            <div class="data-value">${totalCells[3].textContent}</div>
+                            <div class="data-value">${totalCells[8].textContent}</div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="card-section">
                     <div class="data-item" style="grid-column: span 2;">
-                        <div class="data-label">Rata-rata Presentase</div>
-                        <div class="data-value"><strong>${totalCells[4].innerText}</strong></div>
+                        <div class="data-label">Persentase Global</div>
+                        <div class="data-value"><strong>${totalCells[9].innerText}</strong></div>
                     </div>
                 </div>
             `;
@@ -459,48 +459,56 @@ document.addEventListener('DOMContentLoaded', function() {
             <thead>
                 <tr>
                     <th rowspan="2">No</th>
-                    <th colspan="4" style="background-color: #fef08a;">PENGADAAN</th>
+                    <th colspan="9" style="background-color: #fef08a;">REALISASI CAPAIAN</th>
                 </tr>
                 <tr>
                     <th>Nama Satker</th>
-                    <th>Anggaran Belanja Pengadaan</th>
-                    <th>Total Realisasi Pengadaan <br><span style="font-size: 11px;">(Tender, Non-Tender, E-Katalog, Toko Daring)</span></th>
-                    <th>Presentase Realisasi Pengadaan <br><span style="font-size: 11px;">(D / C × 100%)</span></th>
+                    <th>Pagu RUP Penyedia</th>
+                    <th>Realisasi Penyedia <br><span style="font-size: 11px;">(Tender, Non-Tender, E-Purchasing)</span></th>
+                    <th>Persentase Penyedia</th>
+                    <th>Pagu RUP Swakelola</th>
+                    <th>Realisasi Swakelola</th>
+                    <th>Persentase Swakelola</th>
+                    <th>Total Pagu Keseluruhan</th>
+                    <th>Total Realisasi Keseluruhan</th>
+                    <th>Persentase Global</th>
                 </tr>
             </thead>
             <tbody>
-                @php
-                    $totalBelanja = 0;
-                    $totalTransaksi = 0;
-                    $totalPersen = 0;
-                    $jumlahData = $data->count();
-                @endphp
+                @php $jumlahData = $data->count(); @endphp
 
                 @forelse($data as $index => $item)
-                    @php
-                        $totalBelanja += $item->belanja_pengadaan;
-                        $totalTransaksi += $item->total_transaksi;
-                        $totalPersen += $item->presentase_realisasi;
-                    @endphp
                     <tr>
                         <td class="text-center">{{ $index + 1 }}</td>
                         <td class="text-left">{{ $item->nama_satker }}</td>
-                        <td class="text-right">{{ number_format($item->belanja_pengadaan, 0, ',', '.') }}</td>
-                        <td class="text-right">{{ number_format($item->total_transaksi, 0, ',', '.') }}</td>
-                        <td class="text-right"><strong>{{ number_format($item->presentase_realisasi, 2, ',', '.') }}%</strong></td>
+                        <td class="text-right">{{ number_format($item->pagu_penyedia, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($item->realisasi_penyedia, 0, ',', '.') }}</td>
+                        <td class="text-right"><strong>{{ number_format($item->persentase_penyedia, 2, ',', '.') }}%</strong></td>
+                        <td class="text-right">{{ number_format($item->pagu_swakelola, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($item->realisasi_swakelola, 0, ',', '.') }}</td>
+                        <td class="text-right"><strong>{{ number_format($item->persentase_swakelola, 2, ',', '.') }}%</strong></td>
+                        <td class="text-right">{{ number_format($item->pagu_global, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($item->realisasi_global, 0, ',', '.') }}</td>
+                        <td class="text-right"><strong>{{ number_format($item->persentase_global, 2, ',', '.') }}%</strong></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="no-data">Tidak ada data yang tersedia untuk tahun atau satker yang dipilih.</td>
+                        <td colspan="11" class="no-data">Tidak ada data yang tersedia untuk tahun atau satker yang dipilih.</td>
                     </tr>
                 @endforelse
 
                 @if($jumlahData > 0)
                     <tr class="total-row">
                         <td colspan="2" class="text-left">TOTAL</td>
-                        <td class="text-right">{{ number_format($totalBelanja, 0, ',', '.') }}</td>
-                        <td class="text-right">{{ number_format($totalTransaksi, 0, ',', '.') }}</td>
-                        <td class="text-right">{{ number_format($totalPersen / $jumlahData, 2, ',', '.') }}%</td>
+                        <td class="text-right">{{ number_format($summary->pagu_penyedia, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($summary->realisasi_penyedia, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($summary->persentase_penyedia, 2, ',', '.') }}%</td>
+                        <td class="text-right">{{ number_format($summary->pagu_swakelola, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($summary->realisasi_swakelola, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($summary->persentase_swakelola, 2, ',', '.') }}%</td>
+                        <td class="text-right">{{ number_format($summary->pagu_global, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($summary->realisasi_global, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($summary->persentase_global, 2, ',', '.') }}%</td>
                     </tr>
                 @endif
             </tbody>

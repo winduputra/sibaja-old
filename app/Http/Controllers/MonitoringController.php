@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View; // ✅ BENAR di sini
-use App\Models\Satker;
-use App\Models\SwakelolaRealisasi;
 use Spipu\Html2Pdf\Html2Pdf;
 
 // use Barryvdh\DomPDF\Facade\Pdf; // ❌ Kalau kamu pakai Html2Pdf, hapus ini
@@ -24,60 +22,7 @@ class MonitoringController extends Controller
 
         $satkers = $this->getRealisasiSatkers($tahunList);
 
-        $data = $satkers->map(function ($satker) use ($tahunList) {
-            $namaSatker = $satker->nama_satker;
-
-            // Belanja Pengadaan = RUP Penyedia + RUP Swakelola
-            $belanjaPenyedia = DB::table('penyedias')
-                ->where('nama_satker', $namaSatker)
-                ->whereIn('tahun_anggaran', $tahunList)
-                ->sum('pagu');
-
-            $belanjaSwakelola = DB::table('swakelolas')
-                ->where('nama_satker', $namaSatker)
-                ->whereIn('tahun_anggaran', $tahunList)
-                ->sum('pagu');
-
-            $belanja = $belanjaPenyedia + $belanjaSwakelola;
-
-            $nilaiTender = DB::table('tender_pengumuman_data')
-                ->where('nama_satker', $namaSatker)
-                ->whereIn('tahun', $tahunList)
-                ->sum('pagu');
-
-            $nilaiNonTender = DB::table('non_tender_pengumuman')
-                ->where('nama_satker', $namaSatker)
-                ->whereIn('tahun_anggaran', $tahunList)
-                ->sum('pagu');
-
-            $nilaiV5 = DB::table('ekatalog_v5_pakets')
-                ->where('nama_satker', $namaSatker)
-                ->whereIn('tahun_anggaran', $tahunList)
-                ->sum('total_harga');
-
-            $nilaiV6 = DB::table('ekatalog_v6_pakets')
-                ->where('nama_satker', $namaSatker)
-                ->whereIn('tahun_anggaran', $tahunList)
-                ->sum('total_harga');
-
-            $nilaiToko = DB::table('toko_darings')
-                ->where('nama_satker', $namaSatker)
-                ->whereIn('tahun', $tahunList)
-                ->sum('valuasi');
-
-            $totalTransaksi = $nilaiTender + $nilaiNonTender + $nilaiV5 + $nilaiV6 + $nilaiToko;
-
-            $presentaseRealisasi = $belanja > 0
-                ? round(($totalTransaksi / $belanja) * 100, 2)
-                : 0;
-
-            return (object)[
-                'nama_satker' => $namaSatker,
-                'belanja_pengadaan' => $belanja,
-                'total_transaksi' => $totalTransaksi,
-                'presentase_realisasi' => $presentaseRealisasi,
-            ];
-        });
+        $data = $this->buildRealisasiSatkerData($satkers, $tahunList);
 
         // Ambil list nama satker dari seluruh sumber realisasi/RUP.
         $listSatker = $satkers->pluck('nama_satker')->unique()->sort()->values();
@@ -88,7 +33,9 @@ class MonitoringController extends Controller
                 return $item->nama_satker === $request->get('satker');
             }
             return true;
-        });
+        })->values();
+
+        $summary = $this->buildRealisasiSummary($data);
         $view = (auth()->user()->role_id == 2)
         ? 'users.monitoring.presentase-realisasi'
         : 'monitoring.presentase-realisasi';
@@ -98,6 +45,7 @@ class MonitoringController extends Controller
         'tahun' => implode(', ', $tahunList),
         'tahunListOptions' => $tahunListOptions,
         'listSatker' => $listSatker,
+        'summary' => $summary,
     ]);
 
 
@@ -114,74 +62,22 @@ public function exportRealisasiToPDF(Request $request)
     $tahunList = [$selectedTahun];
 
     $satkers = $this->getRealisasiSatkers($tahunList);
-
-    // Map data same as presentaseRealisasi
-    $data = $satkers->map(function ($satker) use ($tahunList) {
-        $namaSatker = $satker->nama_satker;
-
-        // Belanja Pengadaan = RUP Penyedia + RUP Swakelola
-        $belanjaPenyedia = DB::table('penyedias')
-            ->where('nama_satker', $namaSatker)
-            ->whereIn('tahun_anggaran', $tahunList)
-            ->sum('pagu');
-
-        $belanjaSwakelola = DB::table('swakelolas')
-            ->where('nama_satker', $namaSatker)
-            ->whereIn('tahun_anggaran', $tahunList)
-            ->sum('pagu');
-
-        $belanja = $belanjaPenyedia + $belanjaSwakelola;
-
-        $nilaiTender = DB::table('tender_pengumuman_data')
-            ->where('nama_satker', $namaSatker)
-            ->whereIn('tahun', $tahunList)
-            ->sum('pagu');
-
-        $nilaiNonTender = DB::table('non_tender_pengumuman')
-            ->where('nama_satker', $namaSatker)
-            ->whereIn('tahun_anggaran', $tahunList)
-            ->sum('pagu');
-
-        $nilaiV5 = DB::table('ekatalog_v5_pakets')
-            ->where('nama_satker', $namaSatker)
-            ->whereIn('tahun_anggaran', $tahunList)
-            ->sum('total_harga');
-
-        $nilaiV6 = DB::table('ekatalog_v6_pakets')
-            ->where('nama_satker', $namaSatker)
-            ->whereIn('tahun_anggaran', $tahunList)
-            ->sum('total_harga');
-
-        $nilaiToko = DB::table('toko_darings')
-            ->where('nama_satker', $namaSatker)
-            ->whereIn('tahun', $tahunList)
-            ->sum('valuasi');
-
-        $totalTransaksi = $nilaiTender + $nilaiNonTender + $nilaiV5 + $nilaiV6 + $nilaiToko;
-
-        $presentaseRealisasi = $belanja > 0
-            ? round(($totalTransaksi / $belanja) * 100, 2)
-            : 0;
-
-        return (object)[
-            'nama_satker' => $namaSatker,
-            'belanja_pengadaan' => $belanja,
-            'total_transaksi' => $totalTransaksi,
-            'presentase_realisasi' => $presentaseRealisasi,
-        ];
-    });
+    $data = $this->buildRealisasiSatkerData($satkers, $tahunList);
 
     // Filter by satker if provided
     if ($satkerFilter) {
         $data = $data->filter(function ($item) use ($satkerFilter) {
             return $item->nama_satker === $satkerFilter;
-        });
+        })->values();
     }
+
+    $summary = $this->buildRealisasiSummary($data);
 
     // Render HTML to PDF
     $html = View::make('exports.realisasi-presentase', [
         'data' => $data,
         'tahun' => implode(', ', $tahunList),
+        'summary' => $summary,
     ])->render();
 
     $pdf = new Html2Pdf('L', 'A4', 'en');
@@ -223,8 +119,8 @@ private function getRealisasiSatkers(array $tahunList)
         DB::table('ekatalog_v6_pakets')
             ->whereIn('tahun_anggaran', $tahunList)
             ->pluck('nama_satker'),
-        DB::table('toko_darings')
-            ->whereIn('tahun', $tahunList)
+        DB::table('swakelola_realisasi')
+            ->whereIn('tahun_anggaran', $tahunList)
             ->pluck('nama_satker'),
     ])
         ->flatten()
@@ -237,6 +133,97 @@ private function getRealisasiSatkers(array $tahunList)
         });
 }
 
+private function buildRealisasiSatkerData($satkers, array $tahunList)
+{
+    return $satkers->map(function ($satker) use ($tahunList) {
+        return $this->buildRealisasiSatkerRow($satker->nama_satker, $tahunList);
+    });
+}
+
+private function buildRealisasiSatkerRow($namaSatker, array $tahunList)
+{
+    $paguPenyedia = DB::table('penyedias')
+        ->where('nama_satker', $namaSatker)
+        ->whereIn('tahun_anggaran', $tahunList)
+        ->sum('pagu');
+
+    $paguSwakelola = DB::table('swakelolas')
+        ->where('nama_satker', $namaSatker)
+        ->whereIn('tahun_anggaran', $tahunList)
+        ->sum('pagu');
+
+    $nilaiTender = DB::table('tender_pengumuman_data')
+        ->where('nama_satker', $namaSatker)
+        ->whereIn('tahun', $tahunList)
+        ->where('status_tender', 'Selesai')
+        ->sum('pagu');
+
+    $nilaiNonTender = DB::table('non_tender_pengumuman')
+        ->where('nama_satker', $namaSatker)
+        ->whereIn('tahun_anggaran', $tahunList)
+        ->where('status_nontender', 'Selesai')
+        ->sum('pagu');
+
+    $nilaiEPurchasing = DB::table('ekatalog_v5_pakets')
+        ->where('nama_satker', $namaSatker)
+        ->whereIn('tahun_anggaran', $tahunList)
+        ->sum('total_harga')
+        + DB::table('ekatalog_v6_pakets')
+            ->where('nama_satker', $namaSatker)
+            ->whereIn('tahun_anggaran', $tahunList)
+            ->sum('total_harga');
+
+    $realisasiPenyedia = $nilaiTender + $nilaiNonTender + $nilaiEPurchasing;
+
+    $realisasiSwakelola = DB::table('swakelola_realisasi')
+        ->where('nama_satker', $namaSatker)
+        ->whereIn('tahun_anggaran', $tahunList)
+        ->sum('nilai_realisasi');
+
+    $paguGlobal = $paguPenyedia + $paguSwakelola;
+    $realisasiGlobal = $realisasiPenyedia + $realisasiSwakelola;
+
+    return (object) [
+        'nama_satker' => $namaSatker,
+        'pagu_penyedia' => $paguPenyedia,
+        'realisasi_penyedia' => $realisasiPenyedia,
+        'persentase_penyedia' => $this->percent($realisasiPenyedia, $paguPenyedia),
+        'pagu_swakelola' => $paguSwakelola,
+        'realisasi_swakelola' => $realisasiSwakelola,
+        'persentase_swakelola' => $this->percent($realisasiSwakelola, $paguSwakelola),
+        'pagu_global' => $paguGlobal,
+        'realisasi_global' => $realisasiGlobal,
+        'persentase_global' => $this->percent($realisasiGlobal, $paguGlobal),
+    ];
+}
+
+private function buildRealisasiSummary($data)
+{
+    $paguPenyedia = $data->sum('pagu_penyedia');
+    $realisasiPenyedia = $data->sum('realisasi_penyedia');
+    $paguSwakelola = $data->sum('pagu_swakelola');
+    $realisasiSwakelola = $data->sum('realisasi_swakelola');
+    $paguGlobal = $paguPenyedia + $paguSwakelola;
+    $realisasiGlobal = $realisasiPenyedia + $realisasiSwakelola;
+
+    return (object) [
+        'pagu_penyedia' => $paguPenyedia,
+        'realisasi_penyedia' => $realisasiPenyedia,
+        'persentase_penyedia' => $this->percent($realisasiPenyedia, $paguPenyedia),
+        'pagu_swakelola' => $paguSwakelola,
+        'realisasi_swakelola' => $realisasiSwakelola,
+        'persentase_swakelola' => $this->percent($realisasiSwakelola, $paguSwakelola),
+        'pagu_global' => $paguGlobal,
+        'realisasi_global' => $realisasiGlobal,
+        'persentase_global' => $this->percent($realisasiGlobal, $paguGlobal),
+    ];
+}
+
+private function percent($realisasi, $pagu)
+{
+    return $pagu > 0 ? round(($realisasi / $pagu) * 100, 2) : 0;
+}
+
 private function getRealisasiTahunList()
 {
     return collect([
@@ -247,7 +234,7 @@ private function getRealisasiTahunList()
         DB::table('non_tender_pengumuman')->pluck('tahun_anggaran'),
         DB::table('ekatalog_v5_pakets')->pluck('tahun_anggaran'),
         DB::table('ekatalog_v6_pakets')->pluck('tahun_anggaran'),
-        DB::table('toko_darings')->pluck('tahun'),
+        DB::table('swakelola_realisasi')->pluck('tahun_anggaran'),
     ])
         ->flatten()
         ->filter()
@@ -385,131 +372,92 @@ protected function getSatkerRealisasi($tahun, $kdSatker, $namaSatker)
     ];
 }
 
-public function rekapRealisasiBerlangsung(Request $request)
-{
-    $tahun = $request->get('tahun', date('Y'));
-    $filterSatker = $request->get('satker');
+    public function rekapRealisasiBerlangsung(Request $request)
+    {
+        $tahunListOptions = $this->getRealisasiBerlangsungTahunList();
+        $tahun = (int) ($request->get('tahun') ?: ($tahunListOptions[0] ?? date('Y')));
+        $filterSatker = $request->get('satker');
 
-    // Ambil daftar satker (Gunakan satkers table, fallback ke penyedias jika kosong)
-    $satkerQuery = DB::table('satkers')
-        ->select('kd_satker', 'nama_satker')
-        ->where('tahun_anggaran', $tahun)
-        ->where('kd_klpd', 'D264');
+        $satkerList = $this->getRealisasiBerlangsungSatkers($tahun);
+        $listSatker = $satkerList->pluck('nama_satker')->unique()->sort()->values();
 
-    if ($satkerQuery->count() == 0) {
-        $satkerQuery = DB::table('penyedias')
-            ->select('kd_satker', 'nama_satker')
-            ->where('tahun_anggaran', $tahun)
-            ->where('kd_klpd', 'D264')
-            ->distinct();
-    }
+        // Loop per Satker
+        $data = $satkerList
+            ->when($filterSatker, fn($items) => $items->where('nama_satker', $filterSatker))
+            ->values()
+            ->map(function ($satker) use ($tahun) {
+                $namaSatker = $satker->nama_satker;
 
-    $satkerList = $satkerQuery->when($filterSatker, fn($q) => $q->where('nama_satker', $filterSatker))
-        ->get();
+                // Hitung data tender, non-tender, dan e-katalog (sesuai sumber ongoing report)
+                $totalPaketTender = DB::table('tender_pengumuman_data')
+                    ->where('tahun', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('status_tender', 'Berlangsung')
+                    ->count();
 
-    // Daftar satker untuk filter
-    $listSatker = DB::table('satkers')
-        ->where('tahun_anggaran', $tahun)
-        ->pluck('nama_satker')
-        ->unique();
+                $totalNilaiTender = DB::table('tender_pengumuman_data')
+                    ->where('tahun', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('status_tender', 'Berlangsung')
+                    ->sum('pagu');
 
-    if ($listSatker->isEmpty()) {
-        $listSatker = DB::table('penyedias')
-            ->where('tahun_anggaran', $tahun)
-            ->pluck('nama_satker')
-            ->unique();
-    }
-    
-    $listSatker = $listSatker->sort()->values();
+                $totalPaketNonTender = DB::table('non_tender_pengumuman')
+                    ->where('tahun_anggaran', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('status_nontender', 'Berlangsung')
+                    ->count();
 
-    // Loop per Satker
-    $data = $satkerList->map(function ($satker) use ($tahun) {
-        $namaSatker = $satker->nama_satker;
-        $kdSatker = $satker->kd_satker;
+                $totalNilaiNonTender = DB::table('non_tender_pengumuman')
+                    ->where('tahun_anggaran', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('status_nontender', 'Berlangsung')
+                    ->sum('pagu');
 
-        // Hitung data tender, non-tender, e-katalog, dan toko daring (seperti yang sudah kamu tulis)
-        $totalPaketTender = DB::table('tender_pengumuman_data')
-            ->where('tahun', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_tender', 'Berlangsung')
-            ->count();
+                $totalPaketEkatalogV5 = DB::table('ekatalog_v5_pakets')
+                    ->where('tahun_anggaran', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('paket_status_str', 'Paket Proses')
+                    ->count();
 
-        $totalNilaiTender = DB::table('tender_pengumuman_data')
-            ->where('tahun', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_tender', 'Berlangsung')
-            ->sum('pagu');
+                $totalNilaiEkatalogV5 = DB::table('ekatalog_v5_pakets')
+                    ->where('tahun_anggaran', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('paket_status_str', 'Paket Proses')
+                    ->sum('total_harga');
 
-        $totalPaketNonTender = DB::table('non_tender_pengumuman')
-            ->where('tahun_anggaran', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_nontender', 'Berlangsung')
-            ->count();
+                $totalPaketEkatalogV6 = DB::table('ekatalog_v6_pakets')
+                    ->where('tahun_anggaran', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('status_pkt', 'PROGRESS')
+                    ->count();
 
-        $totalNilaiNonTender = DB::table('non_tender_pengumuman')
-            ->where('tahun_anggaran', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_nontender', 'Berlangsung')
-            ->sum('pagu');
+                $totalNilaiEkatalogV6 = DB::table('ekatalog_v6_pakets')
+                    ->where('tahun_anggaran', $tahun)
+                    ->where('nama_satker', $namaSatker)
+                    ->where('status_pkt', 'PROGRESS')
+                    ->sum('total_harga');
 
-        $totalPaketEkatalogV5 = DB::table('ekatalog_v5_pakets')
-            ->where('tahun_anggaran', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('paket_status_str', 'Paket Proses')
-            ->count();
+                return [
+                    'nama_satker' => $namaSatker,
+                    'total_paket_tender' => $totalPaketTender,
+                    'total_nilai_tender' => $totalNilaiTender,
+                    'total_paket_nontender' => $totalPaketNonTender,
+                    'total_nilai_nontender' => $totalNilaiNonTender,
+                    'total_paket_ekatalog' => $totalPaketEkatalogV5 + $totalPaketEkatalogV6,
+                    'total_nilai_ekatalog' => $totalNilaiEkatalogV5 + $totalNilaiEkatalogV6,
+                ];
+            });
 
-        $totalNilaiEkatalogV5 = DB::table('ekatalog_v5_pakets')
-            ->where('tahun_anggaran', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('paket_status_str', 'Paket Proses')
-            ->sum('total_harga');
+        $view = (auth()->user()->role_id == 2)
+            ? 'users.monitoring.rekap-realisasi-berlangsung'
+            : 'monitoring.rekap-realisasi-berlangsung';
 
-        $totalPaketEkatalogV6 = DB::table('ekatalog_v6_pakets')
-            ->where('tahun_anggaran', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_pkt', 'PROGRESS')
-            ->count();
-
-        $totalNilaiEkatalogV6 = DB::table('ekatalog_v6_pakets')
-            ->where('tahun_anggaran', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_pkt', 'PROGRESS')
-            ->sum('total_harga');
-
-        $totalPaketTokoDaring = DB::table('toko_darings')
-            ->where('tahun', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_verif', 'unverified')
-            ->count();
-
-        $totalNilaiTokoDaring = DB::table('toko_darings')
-            ->where('tahun', $tahun)
-            ->where('nama_satker', $namaSatker)
-            ->where('status_verif', 'unverified')
-            ->sum('valuasi');
-
-        return [
-            'nama_satker' => $namaSatker,
-            'total_paket_tender' => $totalPaketTender,
-            'total_nilai_tender' => $totalNilaiTender,
-            'total_paket_nontender' => $totalPaketNonTender,
-            'total_nilai_nontender' => $totalNilaiNonTender,
-            'total_paket_ekatalog' => $totalPaketEkatalogV5 + $totalPaketEkatalogV6,
-            'total_nilai_ekatalog' => $totalNilaiEkatalogV5 + $totalNilaiEkatalogV6,
-            'total_paket_tokodaring' => $totalPaketTokoDaring,
-            'total_nilai_tokodaring' => $totalNilaiTokoDaring,
-        ];
-    });
-
-    $view = (auth()->user()->role_id == 2)
-    ? 'users.monitoring.rekap-realisasi-berlangsung'
-    : 'monitoring.rekap-realisasi-berlangsung';
-
-return view($view, [
-    'data' => $data,
-    'tahun' => $tahun,
-    'listSatker' => $listSatker,
-]);
+        return view($view, [
+            'data' => $data,
+            'tahun' => $tahun,
+            'listSatker' => $listSatker,
+            'tahunListOptions' => $tahunListOptions,
+        ]);
 
 }
 public function exportRealisasiBerlangsungPdf(Request $request)
@@ -541,25 +489,8 @@ public function exportRealisasiBerlangsungPdf(Request $request)
 }
     protected function getRealisasiBerlangsungData($tahun)
     {
-        // Ambil daftar satker (Gunakan satkers table, fallback ke penyedias jika kosong)
-        $satkerQuery = DB::table('satkers')
-            ->select('kd_satker', 'nama_satker')
-            ->where('tahun_anggaran', $tahun)
-            ->where('kd_klpd', 'D264');
-
-        if ($satkerQuery->count() == 0) {
-            $satkerQuery = DB::table('penyedias')
-                ->select('kd_satker', 'nama_satker')
-                ->where('tahun_anggaran', $tahun)
-                ->where('kd_klpd', 'D264')
-                ->distinct();
-        }
-
-        $satkerList = $satkerQuery->get();
-    
-        return $satkerList->map(function ($satker) use ($tahun) {
+        return $this->getRealisasiBerlangsungSatkers($tahun)->map(function ($satker) use ($tahun) {
             $namaSatker = $satker->nama_satker;
-            $kdSatker = $satker->kd_satker;
     
             // Tender Pengumuman
             $totalPaketTender = DB::table('tender_pengumuman_data')
@@ -613,19 +544,6 @@ public function exportRealisasiBerlangsungPdf(Request $request)
                 ->where('status_pkt', 'PROGRESS')
                 ->sum('total_harga');
     
-            // Toko Daring
-            $totalPaketTokoDaring = DB::table('toko_darings')
-                ->where('tahun', $tahun)
-                ->where('nama_satker', $namaSatker)
-                ->where('status_verif', 'unverified')
-                ->count();
-    
-            $totalNilaiTokoDaring = DB::table('toko_darings')
-                ->where('tahun', $tahun)
-                ->where('nama_satker', $namaSatker)
-                ->where('status_verif', 'unverified')
-                ->sum('valuasi');
-    
             return [
                 'nama_satker' => $namaSatker,
                 'total_paket_tender' => $totalPaketTender,
@@ -634,20 +552,69 @@ public function exportRealisasiBerlangsungPdf(Request $request)
                 'total_nilai_nontender' => $totalNilaiNonTender,
                 'total_paket_ekatalog' => $totalPaketEkatalogV5 + $totalPaketEkatalogV6,
                 'total_nilai_ekatalog' => $totalNilaiEkatalogV5 + $totalNilaiEkatalogV6,
-                'total_paket_tokodaring' => $totalPaketTokoDaring,
-                'total_nilai_tokodaring' => $totalNilaiTokoDaring,
             ];
         });
     }
+
+    private function getRealisasiBerlangsungTahunList()
+    {
+        return collect([
+            DB::table('tender_pengumuman_data')->distinct()->pluck('tahun'),
+            DB::table('non_tender_pengumuman')->distinct()->pluck('tahun_anggaran'),
+            DB::table('ekatalog_v5_pakets')->distinct()->pluck('tahun_anggaran'),
+            DB::table('ekatalog_v6_pakets')->distinct()->pluck('tahun_anggaran'),
+        ])
+            ->flatten()
+            ->filter()
+            ->map(fn($tahun) => (int) $tahun)
+            ->push(2026)
+            ->unique()
+            ->sortDesc()
+            ->values()
+            ->all();
+    }
+
+    private function getRealisasiBerlangsungSatkers(int $tahun)
+    {
+        $sources = [
+            ['table' => 'satkers', 'year_column' => 'tahun_anggaran', 'kd_column' => 'kd_satker', 'needs_kd_klpd' => true],
+            ['table' => 'penyedias', 'year_column' => 'tahun_anggaran', 'kd_column' => 'kd_satker', 'needs_kd_klpd' => true],
+            ['table' => 'tender_pengumuman_data', 'year_column' => 'tahun', 'kd_column' => 'kd_satker'],
+            ['table' => 'non_tender_pengumuman', 'year_column' => 'tahun_anggaran', 'kd_column' => 'kd_satker'],
+            ['table' => 'ekatalog_v5_pakets', 'year_column' => 'tahun_anggaran', 'kd_column' => 'satker_id'],
+            ['table' => 'ekatalog_v6_pakets', 'year_column' => 'tahun_anggaran', 'kd_column' => 'kd_satker_str'],
+        ];
+
+        return collect($sources)
+            ->flatMap(function ($source) use ($tahun) {
+                $kdColumn = $source['kd_column'] ?? null;
+                $query = DB::table($source['table'])
+                    ->selectRaw(($kdColumn ? "$kdColumn as kd_satker" : 'NULL as kd_satker') . ', nama_satker')
+                    ->where($source['year_column'], $tahun)
+                    ->distinct();
+
+                if (!empty($source['needs_kd_klpd'])) {
+                    $query->where('kd_klpd', 'D264');
+                }
+
+                return $query->get();
+            })
+            ->filter(function ($satker) {
+                return filled($satker->nama_satker);
+            })
+            ->unique(function ($satker) {
+                return trim((string) $satker->nama_satker);
+            })
+            ->sortBy('nama_satker')
+            ->values();
+    }
     public function kontrak(Request $request)
     {
-        $tahun = $request->get('tahun', date('Y'));
+        $tahun = $request->get('tahun', $request->get('tahun_anggaran', date('Y')));
         $filterSatker = $request->get('nama_satker', '');
-    
-        // Daftar tahun (misal 2024 dan 2025)
-        $tahunList = range(date('Y') - 1, date('Y'));
-    
-        // Ambil semua Satker dari struktur anggaran & tender
+
+        $tahunList = config('api.inaproc.endpoints.tender_selesai_nilai.supported_years', [2025, 2026]);
+
         $allSatker = DB::table('struktur_anggarans')
             ->select('nama_satker')
             ->where('tahun_anggaran', $tahun)
@@ -660,66 +627,76 @@ public function exportRealisasiBerlangsungPdf(Request $request)
             ->pluck('nama_satker')
             ->unique()
             ->toArray();
-    
-        // Jika filter satker kosong, pakai semua Satker
+
         $targetSatker = empty($filterSatker) ? $allSatker : [$filterSatker];
-    
-        // Hitung jumlah paket selesai tender
+
         $tenderCount = DB::table('tender_selesai_nilai_data')
-            ->select('nama_satker', DB::raw('count(*) as total_paket'))
+            ->select('nama_satker', DB::raw('count(distinct kd_tender) as total_paket'))
             ->where('tahun', $tahun)
             ->whereIn('nama_satker', $targetSatker)
+            ->whereNotNull('kd_tender')
             ->groupBy('nama_satker')
             ->pluck('total_paket', 'nama_satker');
-    
-        // Hitung total pagu per satker
+
         $paguPerSatker = DB::table('tender_selesai_nilai_data')
             ->select('nama_satker', DB::raw('sum(pagu) as total_pagu'))
             ->where('tahun', $tahun)
             ->whereIn('nama_satker', $targetSatker)
+            ->whereNotNull('kd_tender')
             ->groupBy('nama_satker')
             ->pluck('total_pagu', 'nama_satker');
-    
-        // Hitung kontrak dari kontrak_data per satker
-        $kontrakPerSatker = DB::table('kontrak_data')
-            ->select('nama_satker', DB::raw('count(*) as total_kontrak'))
-            ->where('tahun', $tahun)
-            ->whereIn('nama_satker', $targetSatker)
-            ->groupBy('nama_satker')
-            ->pluck('total_kontrak', 'nama_satker');
-    
-        // Bangun array hasil
+
+        $belumKontrakPerSatker = DB::table('tender_selesai_nilai_data as ts')
+            ->leftJoin('kontrak_data as k', 'ts.kd_tender', '=', 'k.kd_tender')
+            ->select('ts.nama_satker', DB::raw('count(distinct ts.kd_tender) as total_belum_kontrak'))
+            ->where('ts.tahun', $tahun)
+            ->whereIn('ts.nama_satker', $targetSatker)
+            ->whereNotNull('ts.kd_tender')
+            ->whereNull('k.kd_tender')
+            ->groupBy('ts.nama_satker')
+            ->pluck('total_belum_kontrak', 'ts.nama_satker');
+
         $result = [];
         foreach ($targetSatker as $satker) {
-            $paket = $tenderCount[$satker] ?? 0;
-            $pagu = $paguPerSatker[$satker] ?? 0;
-            $kontrak = $kontrakPerSatker[$satker] ?? 0;
-    
             $result[] = [
                 'nama_satker' => $satker,
-                'total_paket' => $paket,
-                'total_pagu' => $pagu,
-                'total_kontrak' => $paket - $kontrak, // jumlah paket belum dikontrak
+                'total_paket' => $tenderCount[$satker] ?? 0,
+                'total_pagu' => $paguPerSatker[$satker] ?? 0,
+                'total_kontrak' => $belumKontrakPerSatker[$satker] ?? 0,
             ];
         }
-    
-        // Total keseluruhan
+
         $totals = [
             'total_paket' => array_sum(array_column($result, 'total_paket')),
             'total_pagu' => array_sum(array_column($result, 'total_pagu')),
             'total_kontrak' => array_sum(array_column($result, 'total_kontrak')),
         ];
-    
-        // Total global
-        $totalTenderSelesai = DB::table('tender_selesai_nilai_data')->where('tahun', $tahun)->count();
-        $totalKontrak = DB::table('kontrak_data')->where('tahun', $tahun)->count();
-        $selisih = $totalTenderSelesai - $totalKontrak;
-    
+
+        $totalTenderSelesai = DB::table('tender_selesai_nilai_data')
+            ->where('tahun', $tahun)
+            ->whereNotNull('kd_tender')
+            ->distinct('kd_tender')
+            ->count('kd_tender');
+
+        $totalKontrak = DB::table('tender_selesai_nilai_data as ts')
+            ->join('kontrak_data as k', 'ts.kd_tender', '=', 'k.kd_tender')
+            ->where('ts.tahun', $tahun)
+            ->whereNotNull('ts.kd_tender')
+            ->distinct('ts.kd_tender')
+            ->count('ts.kd_tender');
+
+        $selisih = DB::table('tender_selesai_nilai_data as ts')
+            ->leftJoin('kontrak_data as k', 'ts.kd_tender', '=', 'k.kd_tender')
+            ->where('ts.tahun', $tahun)
+            ->whereNotNull('ts.kd_tender')
+            ->whereNull('k.kd_tender')
+            ->distinct('ts.kd_tender')
+            ->count('ts.kd_tender');
+
         $view = auth()->user()->role_id == 2
         ? 'users.monitoring.kontrak'
         : 'monitoring.kontrak';
-    
-    
+
         return view($view, [
             'data' => $result,
             'tahun' => $tahun,
@@ -735,17 +712,17 @@ public function exportRealisasiBerlangsungPdf(Request $request)
     }
     public function kontrakDetail($satker, Request $request)
     {
-        $tahun = $request->get('tahun', date('Y'));
+        $tahun = $request->get('tahun', $request->get('tahun_anggaran', date('Y')));
         $satker = urldecode($satker);
     
         $data = DB::table('tender_selesai_nilai_data as ts')
-            ->join('tender_pengumuman_data as tp', 'ts.kd_tender', '=', 'tp.kd_tender')
             ->leftJoin('kontrak_data as k', 'ts.kd_tender', '=', 'k.kd_tender')
-            ->select('tp.kd_tender', 'tp.nama_paket', 'tp.pagu', 'tp.nama_satker')
+            ->select('ts.kd_tender', 'ts.nama_paket', 'ts.pagu', 'ts.nama_satker')
             ->where('ts.tahun', $tahun)
             ->where('ts.nama_satker', $satker)
+            ->whereNotNull('ts.kd_tender')
             ->whereNull('k.kd_tender')
-            ->orderBy('tp.nama_paket')
+            ->orderBy('ts.nama_paket')
             ->get();
     
         $totalPagu = $data->sum('pagu');
@@ -760,41 +737,21 @@ public function exportRealisasiBerlangsungPdf(Request $request)
     
     public function exportKontrakDetailPdf($satker, Request $request)
 {
-    $tahun = $request->get('tahun', date('Y'));
+    $tahun = $request->get('tahun', $request->get('tahun_anggaran', date('Y')));
     $satker = urldecode($satker);
     $mode = $request->get('mode', 'V');
 
-    // Ambil daftar kd_tender yang sudah selesai
-    $tenderSelesai = DB::table('tender_selesai_data')
-        ->where('tahun', $tahun)
-        ->where('nama_satker', $satker)
-        ->pluck('kd_tender')
-        ->toArray();
+    $data = DB::table('tender_selesai_nilai_data as ts')
+        ->leftJoin('kontrak_data as k', 'ts.kd_tender', '=', 'k.kd_tender')
+        ->select('ts.kd_tender', 'ts.nama_paket', 'ts.pagu')
+        ->where('ts.tahun', $tahun)
+        ->where('ts.nama_satker', $satker)
+        ->whereNotNull('ts.kd_tender')
+        ->whereNull('k.kd_tender')
+        ->orderBy('ts.nama_paket')
+        ->get();
 
-    if (empty($tenderSelesai)) {
-        $data = collect();
-        $totalPagu = 0;
-    } else {
-        // Ambil daftar kd_tender yang sudah punya kontrak
-        $kontrak = DB::table('kontrak_data')
-            ->where('tahun', $tahun)
-            ->where('nama_satker', $satker)
-            ->whereIn('kd_tender', $tenderSelesai)
-            ->pluck('kd_tender')
-            ->toArray();
-
-        // Ambil data tender selesai tapi belum ada kontraknya
-        $data = DB::table('tender_pengumuman_data')
-            ->select('kd_tender', 'nama_paket', 'pagu')
-            ->where('tahun', $tahun)
-            ->where('nama_satker', $satker)
-            ->whereIn('kd_tender', $tenderSelesai)
-            ->whereNotIn('kd_tender', $kontrak)
-            ->orderBy('nama_paket')
-            ->get();
-
-        $totalPagu = $data->sum('pagu');
-    }
+    $totalPagu = $data->sum('pagu');
 
     // Pilih view berdasarkan role (admin atau user biasa)
     $view = auth()->user()->role_id == 2
