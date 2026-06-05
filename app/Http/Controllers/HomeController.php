@@ -509,24 +509,13 @@ return view('users.home', compact(
             return $query;
         }
 
-        $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay();
-        $yearEnd = Carbon::create((int) $tahun, 12, 31)->endOfDay();
         $rangeStart = $dateRange['start']->copy();
         $rangeEnd = $dateRange['end']->copy();
-        $includePreYearDates = $rangeStart->equalTo($yearStart)
-            || ($rangeStart->month === 1 && $rangeStart->day <= 7 && $rangeEnd->month === 1 && $rangeEnd->day <= 8);
-        $effectiveStart = $rangeStart->lt($yearStart) || $includePreYearDates ? $yearStart->copy() : $rangeStart;
 
-        return $query->where(function ($query) use ($column, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates, $includeNullDates) {
-            $query->where(function ($query) use ($column, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
+        return $query->where(function ($query) use ($column, $rangeStart, $rangeEnd, $includeNullDates) {
+            $query->where(function ($query) use ($column, $rangeStart, $rangeEnd) {
                 $query->whereNotNull($column)
-                    ->where(function ($query) use ($column, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
-                        $query->whereBetween($column, [$effectiveStart, $rangeEnd])
-                            ->when($includePreYearDates, function ($query) use ($column, $yearStart) {
-                                $query->orWhere($column, '<', $yearStart);
-                            })
-                            ->where($column, '<=', $yearEnd);
-                    });
+                    ->whereBetween($column, [$rangeStart, $rangeEnd]);
             });
 
             if ($includeNullDates) {
@@ -541,23 +530,12 @@ return view('users.home', compact(
             return $query;
         }
 
-        $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay();
-        $yearEnd = Carbon::create((int) $tahun, 12, 31)->endOfDay();
         $rangeStart = $dateRange['start']->copy();
         $rangeEnd = $dateRange['end']->copy();
-        $includePreYearDates = $rangeStart->equalTo($yearStart)
-            || ($rangeStart->month === 1 && $rangeStart->day <= 7 && $rangeEnd->month === 1 && $rangeEnd->day <= 8);
-        $effectiveStart = $rangeStart->lt($yearStart) || $includePreYearDates ? $yearStart->copy() : $rangeStart;
 
-        return $query->where(function ($query) use ($dateExpression, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
+        return $query->where(function ($query) use ($dateExpression, $rangeStart, $rangeEnd) {
             $query->whereRaw("{$dateExpression} IS NOT NULL")
-                ->where(function ($query) use ($dateExpression, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
-                    $query->whereBetween(DB::raw($dateExpression), [$effectiveStart, $rangeEnd])
-                        ->when($includePreYearDates, function ($query) use ($dateExpression, $yearStart) {
-                            $query->orWhere(DB::raw($dateExpression), '<', $yearStart);
-                        })
-                        ->where(DB::raw($dateExpression), '<=', $yearEnd);
-                });
+                ->whereBetween(DB::raw($dateExpression), [$rangeStart, $rangeEnd]);
         });
     }
 
