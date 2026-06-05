@@ -116,6 +116,10 @@
     color: var(--dashboard-heading);
   }
 
+  .dashboard-filter-date {
+    min-width: 145px;
+  }
+
   .dashboard-week-range {
     background-color: var(--dashboard-primary-soft);
     border: 1px solid var(--dashboard-border);
@@ -176,6 +180,14 @@
       ['metode' => 'SWAKELOLA'] + $swakelolaMethodTotals,
   ];
   $methodSummaryTotal = ['metode' => 'TOTAL'] + $totalMethodTotals;
+
+  $methodDetailRows = collect($methodDetailRows ?? []);
+  $methodDetailBodyRows = $methodDetailRows->reject(function ($row) {
+      return data_get($row, 'is_total');
+  })->values();
+  $methodDetailTotal = $methodDetailRows->first(function ($row) {
+      return data_get($row, 'is_total');
+  });
 @endphp
 
 <div class="dashboard-page py-4">
@@ -188,7 +200,7 @@
           <p class="text-muted mb-0">Ringkasan rencana RUP dan realisasi pengadaan per satuan kerja tahun {{ $tahun }}.</p>
         </div>
         <div class="d-flex flex-column align-items-lg-end gap-2">
-          <form method="GET" action="{{ route('home') }}" class="dashboard-filter-form d-flex flex-column flex-sm-row align-items-sm-end gap-2">
+          <form method="GET" action="{{ route('home') }}" class="dashboard-filter-form d-flex flex-column flex-sm-row flex-sm-wrap align-items-sm-end gap-2">
             <input type="hidden" name="kategori_chart2" value="{{ $kategoriChart2 }}">
             <div>
               <label for="tahun" class="form-label small fw-bold mb-1">Tahun Anggaran</label>
@@ -217,10 +229,28 @@
                 @endforeach
               </select>
             </div>
+            <div class="dashboard-filter-date">
+              <label for="tanggal_mulai" class="form-label small fw-bold mb-1">Tanggal Mulai</label>
+              <input type="date" name="tanggal_mulai" id="tanggal_mulai" value="{{ $selectedStartDate }}" class="form-control form-control-sm">
+            </div>
+            <div class="dashboard-filter-date">
+              <label for="tanggal_selesai" class="form-label small fw-bold mb-1">Tanggal Selesai</label>
+              <input type="date" name="tanggal_selesai" id="tanggal_selesai" value="{{ $selectedEndDate }}" class="form-control form-control-sm">
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary btn-sm">Terapkan</button>
+              @if ($isCustomDateRangeActive)
+                <a href="{{ route('home', ['tahun' => $tahun, 'kategori_chart2' => $kategoriChart2]) }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+              @endif
+            </div>
           </form>
           <div class="dashboard-week-range px-3 py-2 small fw-semibold text-lg-end">
             <span class="dashboard-kicker d-block mb-1">Rentang Aktif</span>
-            {{ $activeWeekRange['range_label'] }}
+            @if ($isCustomDateRangeActive)
+              Tanggal Custom: {{ $activeDashboardRange['range_label'] }}
+            @else
+              {{ $activeWeekRange['range_label'] }}
+            @endif
           </div>
         </div>
       </div>
@@ -275,6 +305,57 @@
               <td class="percent-cell">{{ $formatPercent($totalPersentase) }}</td>
             </tr>
           </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="dashboard-recap-card mb-4 overflow-hidden">
+      <div class="px-3 py-3 border-bottom">
+        <h5 class="dashboard-recap-title fw-bold mb-1">DETAIL METODE PEMILIHAN PENGADAAN</h5>
+        <div class="small text-muted">Rincian rencana RUP dan realisasi berdasarkan metode pemilihan.</div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered dashboard-table">
+          <thead>
+            <tr>
+              <th rowspan="2">Metode Pemilihan</th>
+              <th colspan="2">Perencanaan</th>
+              <th colspan="2">Realisasi</th>
+            </tr>
+            <tr>
+              <th>Pagu</th>
+              <th>Paket</th>
+              <th>Pagu</th>
+              <th>Paket</th>
+            </tr>
+          </thead>
+          <tbody>
+            @forelse ($methodDetailBodyRows as $row)
+              <tr>
+                <td class="satker-cell fw-bold">{{ $row['metode'] }}</td>
+                <td class="amount-cell">{{ $formatNumber($row['rencana_pagu']) }}</td>
+                <td class="package-cell">{{ $formatNumber($row['rencana_paket']) }}</td>
+                <td class="amount-cell">{{ $formatNumber($row['realisasi_pagu']) }}</td>
+                <td class="package-cell">{{ $formatNumber($row['realisasi_paket']) }}</td>
+              </tr>
+            @empty
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4">Data metode pemilihan tahun {{ $tahun }} belum tersedia.</td>
+              </tr>
+            @endforelse
+          </tbody>
+          @if ($methodDetailTotal)
+            <tfoot>
+              <tr>
+                <td class="text-end">{{ strtoupper($methodDetailTotal['metode']) }}</td>
+                <td class="amount-cell">{{ $formatNumber($methodDetailTotal['rencana_pagu']) }}</td>
+                <td class="package-cell">{{ $formatNumber($methodDetailTotal['rencana_paket']) }}</td>
+                <td class="amount-cell">{{ $formatNumber($methodDetailTotal['realisasi_pagu']) }}</td>
+                <td class="package-cell">{{ $formatNumber($methodDetailTotal['realisasi_paket']) }}</td>
+              </tr>
+            </tfoot>
+          @endif
         </table>
       </div>
     </div>

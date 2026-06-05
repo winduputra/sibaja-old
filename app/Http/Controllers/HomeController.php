@@ -27,6 +27,11 @@ class HomeController extends Controller
         $selectedWeek = $dashboardFilter['week'];
         $availableWeeks = $dashboardFilter['weeks'];
         $activeWeekRange = $dashboardFilter['range'];
+        $customDateRange = $this->resolveDashboardCustomDateRange($request, $tahun);
+        $activeDashboardRange = $customDateRange ?: $activeWeekRange;
+        $selectedStartDate = $request->input('tanggal_mulai');
+        $selectedEndDate = $request->input('tanggal_selesai');
+        $isCustomDateRangeActive = (bool) $customDateRange;
 
         
         // ✅ Box summary count
@@ -274,7 +279,8 @@ foreach ($satkers as $satker) {
 $totalPersen = $totalBelanja > 0 ? round(($totalTransaksi / $totalBelanja) * 100, 2) : 0;
 
 $today = Carbon::now();
-$dashboardRecaps = $this->buildDashboardRecaps($tahun, $activeWeekRange);
+$dashboardRecaps = $this->buildDashboardRecaps($tahun, $activeDashboardRange);
+$methodDetailRows = $this->buildMethodDetailRows($tahun, $activeDashboardRange);
 
 return view('users.home', compact(
     'today',
@@ -304,6 +310,11 @@ return view('users.home', compact(
     'selectedWeek',
     'availableWeeks',
     'activeWeekRange',
+    'activeDashboardRange',
+    'selectedStartDate',
+    'selectedEndDate',
+    'isCustomDateRangeActive',
+    'methodDetailRows',
 ));
 
     }
@@ -396,6 +407,10 @@ return view('users.home', compact(
             $start = $weekStart->copy()->startOfDay();
             $end = $weekStart->copy()->addDays(6)->endOfDay();
 
+            if ($end->gt($monthEnd)) {
+                $end = $monthEnd->copy();
+            }
+
             $weeks->put((string) $weekNumber, [
                 'number' => $weekNumber,
                 'start' => $start,
@@ -409,6 +424,40 @@ return view('users.home', compact(
         }
 
         return $weeks;
+    }
+
+    private function resolveDashboardCustomDateRange(Request $request, $tahun)
+    {
+        $startInput = $request->input('tanggal_mulai');
+        $endInput = $request->input('tanggal_selesai');
+
+        if (!$startInput && !$endInput) {
+            return null;
+        }
+
+        $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay();
+        $yearEnd = Carbon::create((int) $tahun, 12, 31)->endOfDay();
+
+        try {
+            $start = $startInput ? Carbon::createFromFormat('Y-m-d', $startInput)->startOfDay() : $yearStart;
+            $end = $endInput ? Carbon::createFromFormat('Y-m-d', $endInput)->endOfDay() : $yearEnd;
+        } catch (\Exception $exception) {
+            return null;
+        }
+
+        if ($end->lt($start)) {
+            $swapStart = $end->copy()->startOfDay();
+            $end = $start->copy()->endOfDay();
+            $start = $swapStart;
+        }
+
+        return [
+            'number' => 'custom',
+            'start' => $start,
+            'end' => $end,
+            'label' => 'Tanggal Custom',
+            'range_label' => $this->dashboardDateLabel($start, $end),
+        ];
     }
 
     private function dashboardDefaultWeek($weeks, $tahun, $bulan)
@@ -454,22 +503,71 @@ return view('users.home', compact(
             . ' - ' . $end->format('d') . ' ' . $this->dashboardMonthOptions()->get($end->month) . ' ' . $end->year;
     }
 
-    private function applyDashboardDateRange($query, $column, $dateRange)
+    private function applyDashboardDateRange($query, $column, $dateRange, $tahun, $includeNullDates = false)
     {
         if (!$dateRange) {
             return $query;
         }
 
-        return $query->whereBetween($column, [$dateRange['start'], $dateRange['end']]);
+        $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay();
+        $yearEnd = Carbon::create((int) $tahun, 12, 31)->endOfDay();
+        $rangeStart = $dateRange['start']->copy();
+        $rangeEnd = $dateRange['end']->copy();
+        $includePreYearDates = $rangeStart->equalTo($yearStart)
+            || ($rangeStart->month === 1 && $rangeStart->day <= 7 && $rangeEnd->month === 1 && $rangeEnd->day <= 8);
+        $effectiveStart = $rangeStart->lt($yearStart) || $includePreYearDates ? $yearStart->copy() : $rangeStart;
+
+        return $query->where(function ($query) use ($column, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates, $includeNullDates) {
+            $query->where(function ($query) use ($column, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
+                $query->whereNotNull($column)
+                    ->where(function ($query) use ($column, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
+                        $query->whereBetween($column, [$effectiveStart, $rangeEnd])
+                            ->when($includePreYearDates, function ($query) use ($column, $yearStart) {
+                                $query->orWhere($column, '<', $yearStart);
+                            })
+                            ->where($column, '<=', $yearEnd);
+                    });
+            });
+
+            if ($includeNullDates) {
+                $query->orWhereNull($column);
+            }
+        });
+    }
+
+    private function applyDashboardDateRangeExpression($query, $dateExpression, $dateRange, $tahun)
+    {
+        if (!$dateRange) {
+            return $query;
+        }
+
+        $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay();
+        $yearEnd = Carbon::create((int) $tahun, 12, 31)->endOfDay();
+        $rangeStart = $dateRange['start']->copy();
+        $rangeEnd = $dateRange['end']->copy();
+        $includePreYearDates = $rangeStart->equalTo($yearStart)
+            || ($rangeStart->month === 1 && $rangeStart->day <= 7 && $rangeEnd->month === 1 && $rangeEnd->day <= 8);
+        $effectiveStart = $rangeStart->lt($yearStart) || $includePreYearDates ? $yearStart->copy() : $rangeStart;
+
+        return $query->where(function ($query) use ($dateExpression, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
+            $query->whereRaw("{$dateExpression} IS NOT NULL")
+                ->where(function ($query) use ($dateExpression, $yearStart, $yearEnd, $rangeEnd, $effectiveStart, $includePreYearDates) {
+                    $query->whereBetween(DB::raw($dateExpression), [$effectiveStart, $rangeEnd])
+                        ->when($includePreYearDates, function ($query) use ($dateExpression, $yearStart) {
+                            $query->orWhere(DB::raw($dateExpression), '<', $yearStart);
+                        })
+                        ->where(DB::raw($dateExpression), '<=', $yearEnd);
+                });
+        });
     }
 
     private function buildDashboardRecaps($tahun, $dateRange = null)
     {
         $satkers = $this->dashboardSatkers($tahun);
-        $penyediaPlanning = $this->penyediaPlanningBySatker($tahun);
-        $tenderPlanning = $this->penyediaPlanningBySatker($tahun, 'tender');
-        $epurchasingPlanning = $this->penyediaPlanningBySatker($tahun, 'epurchasing');
-        $swakelolaPlanning = $this->swakelolaPlanningBySatker($tahun);
+        $penyediaPlanning = $this->penyediaPlanningBySatker($tahun, null, $dateRange);
+        $tenderPlanning = $this->penyediaPlanningBySatker($tahun, 'tender', $dateRange);
+        $epurchasingPlanning = $this->penyediaPlanningBySatker($tahun, 'epurchasing', $dateRange);
+        $swakelolaPlanning = $this->swakelolaPlanningBySatker($tahun, $dateRange);
 
         $tenderQuery = DB::table('tender_pengumuman_data')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
@@ -489,13 +587,21 @@ return view('users.home', compact(
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
             ->where('tahun_anggaran', $tahun)
-            ->whereIn('status_pkt', ['ON_PROCESS', 'COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM'])
+            ->whereIn('status_pkt', ['ON_PROCESS', 'COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM', 'ON_ADDENDUM'])
             ->whereNotNull('nama_satker')
             ->groupBy('nama_satker');
 
-        $this->applyDashboardDateRange($tenderQuery, 'tgl_pengumuman_tender', $dateRange);
-        $this->applyDashboardDateRange($nonTenderQuery, 'tgl_pengumuman_nontender', $dateRange);
-        $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange);
+        $this->applyDashboardDateRange($tenderQuery, 'tgl_pengumuman_tender', $dateRange, $tahun);
+        $this->applyDashboardDateRangeExpression($nonTenderQuery, 'COALESCE(tgl_pengumuman_nontender, tgl_buat_paket)', $dateRange, $tahun);
+        $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+
+        $swakelolaRealisasiQuery = DB::table('swakelola_realisasi')
+            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->whereNotNull('nama_satker')
+            ->groupBy('nama_satker');
+
+        $this->applyDashboardDateRange($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
 
         $tenderRealisasi = $this->combineDashboardAggregates([
             $tenderQuery->get(),
@@ -510,12 +616,7 @@ return view('users.home', compact(
         ]);
 
         $swakelolaRealisasi = $this->combineDashboardAggregates([
-            DB::table('swakelola_realisasi')
-                ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
-                ->where('tahun_anggaran', $tahun)
-                ->whereNotNull('nama_satker')
-                ->groupBy('nama_satker')
-                ->get(),
+            $swakelolaRealisasiQuery->get(),
         ]);
 
         $totalPlanning = $this->combineDashboardAggregates([$penyediaPlanning->values(), $swakelolaPlanning->values()]);
@@ -545,6 +646,183 @@ return view('users.home', compact(
         ];
     }
 
+    private function buildMethodDetailRows($tahun, $dateRange = null)
+    {
+        $rows = collect($this->dashboardMethodDetailOrder())->mapWithKeys(function ($method) {
+            return [$method => [
+                'metode' => $method,
+                'rencana_pagu' => 0,
+                'rencana_paket' => 0,
+                'realisasi_pagu' => 0,
+                'realisasi_paket' => 0,
+                'is_total' => false,
+            ]];
+        });
+
+        $penyediaPlanningQuery = DB::table('penyedias')
+            ->select('metode_pengadaan as metode', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->where('nama_klpd', 'Provinsi Lampung')
+            ->groupBy('metode_pengadaan');
+
+        $this->applyRupPlanningSnapshotCutoff($penyediaPlanningQuery, 'penyedias', 'PENYEDIA', $dateRange);
+
+        $penyediaPlanning = $penyediaPlanningQuery->get();
+
+        foreach ($penyediaPlanning as $row) {
+            $this->addMethodDetailBucket($rows, $row->metode, 'planning', $row->paket, $row->nilai);
+        }
+
+        $swakelolaPlanning = DB::table('swakelolas')
+            ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->where('nama_klpd', 'Provinsi Lampung');
+
+        $this->applyRupPlanningSnapshotCutoff($swakelolaPlanning, 'swakelolas', 'SWAKELOLA', $dateRange);
+
+        $swakelolaPlanning = $swakelolaPlanning->first();
+
+        $this->addMethodDetailBucket($rows, 'Swakelola', 'planning', $swakelolaPlanning->paket ?? 0, $swakelolaPlanning->nilai ?? 0);
+
+        $tenderQuery = DB::table('tender_pengumuman_data')
+            ->select('mtd_pemilihan as metode', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->where('status_tender', '!=', 'Gagal/Batal')
+            ->groupBy('mtd_pemilihan');
+
+        $nonTenderQuery = DB::table('non_tender_pengumuman')
+            ->select('mtd_pemilihan as metode', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->where('status_nontender', '!=', 'Gagal/Batal')
+            ->groupBy('mtd_pemilihan');
+
+        $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
+            ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264')
+            ->whereIn('status_pkt', ['ON_PROCESS', 'COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM', 'ON_ADDENDUM']);
+
+        $swakelolaRealisasiQuery = DB::table('swakelola_realisasi')
+            ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
+            ->where('tahun_anggaran', $tahun)
+            ->where('kd_klpd', 'D264');
+
+        $this->applyDashboardDateRange($tenderQuery, 'tgl_pengumuman_tender', $dateRange, $tahun);
+        $this->applyDashboardDateRangeExpression($nonTenderQuery, 'COALESCE(tgl_pengumuman_nontender, tgl_buat_paket)', $dateRange, $tahun);
+        $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+        $this->applyDashboardDateRange($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
+
+        foreach ($tenderQuery->get() as $row) {
+            $this->addMethodDetailBucket($rows, $row->metode, 'realization', $row->paket, $row->nilai);
+        }
+
+        foreach ($nonTenderQuery->get() as $row) {
+            $this->addMethodDetailBucket($rows, $row->metode, 'realization', $row->paket, $row->nilai);
+        }
+
+        $ekatalogV6Realisasi = $ekatalogV6Query->first();
+        $this->addMethodDetailBucket($rows, 'E-Purchasing', 'realization', $ekatalogV6Realisasi->paket ?? 0, $ekatalogV6Realisasi->nilai ?? 0);
+
+        $swakelolaRealisasi = $swakelolaRealisasiQuery->first();
+        $this->addMethodDetailBucket($rows, 'Swakelola', 'realization', $swakelolaRealisasi->paket ?? 0, $swakelolaRealisasi->nilai ?? 0);
+
+        $detailRows = $rows->values();
+
+        return $detailRows->push([
+            'metode' => 'Total',
+            'rencana_pagu' => $detailRows->sum('rencana_pagu'),
+            'rencana_paket' => $detailRows->sum('rencana_paket'),
+            'realisasi_pagu' => $detailRows->sum('realisasi_pagu'),
+            'realisasi_paket' => $detailRows->sum('realisasi_paket'),
+            'is_total' => true,
+        ])->values()->all();
+    }
+
+    private function dashboardMethodDetailOrder()
+    {
+        return [
+            'E-Purchasing',
+            'Kontes',
+            'Pengadaan Langsung',
+            'Pengecualian',
+            'Penunjukan Langsung',
+            'Seleksi',
+            'Tender',
+            'Swakelola',
+        ];
+    }
+
+    private function addMethodDetailBucket($rows, $method, $section, $packageCount, $amount)
+    {
+        $method = $this->normalizeProcurementMethod($method);
+
+        if (!$rows->has($method)) {
+            return;
+        }
+
+        $row = $rows->get($method);
+
+        if ($section === 'planning') {
+            $row['rencana_paket'] += (int) $packageCount;
+            $row['rencana_pagu'] += (float) $amount;
+        }
+
+        if ($section === 'realization') {
+            $row['realisasi_paket'] += (int) $packageCount;
+            $row['realisasi_pagu'] += (float) $amount;
+        }
+
+        $rows->put($method, $row);
+    }
+
+    private function normalizeProcurementMethod($method)
+    {
+        $method = trim((string) $method);
+        $normalized = strtolower(preg_replace('/[\s_-]+/', ' ', $method));
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (strpos($normalized, 'swakelola') !== false) {
+            return 'Swakelola';
+        }
+
+        if (strpos($normalized, 'purchasing') !== false || strpos($normalized, 'katalog') !== false) {
+            return 'E-Purchasing';
+        }
+
+        if (strpos($normalized, 'kontes') !== false) {
+            return 'Kontes';
+        }
+
+        if (strpos($normalized, 'pengadaan langsung') !== false) {
+            return 'Pengadaan Langsung';
+        }
+
+        if (strpos($normalized, 'pengecualian') !== false || strpos($normalized, 'dikecualikan') !== false || strpos($normalized, 'kecuali') !== false) {
+            return 'Pengecualian';
+        }
+
+        if (strpos($normalized, 'penunjukan langsung') !== false) {
+            return 'Penunjukan Langsung';
+        }
+
+        if (strpos($normalized, 'seleksi') !== false) {
+            return 'Seleksi';
+        }
+
+        if (strpos($normalized, 'tender') !== false) {
+            return 'Tender';
+        }
+
+        return $method;
+    }
+
     private function dashboardSatkers($tahun)
     {
         $satkers = DB::table('struktur_anggarans')
@@ -569,7 +847,7 @@ return view('users.home', compact(
         return $satkers->unique('nama_satker')->values();
     }
 
-    private function penyediaPlanningBySatker($tahun, $metode = null)
+    private function penyediaPlanningBySatker($tahun, $metode = null, $dateRange = null)
     {
         $query = DB::table('penyedias')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
@@ -591,19 +869,46 @@ return view('users.home', compact(
             });
         }
 
+        $this->applyRupPlanningSnapshotCutoff($query, 'penyedias', 'PENYEDIA', $dateRange);
+
         return $query->groupBy('nama_satker')->get()->keyBy('nama_satker');
     }
 
-    private function swakelolaPlanningBySatker($tahun)
+    private function swakelolaPlanningBySatker($tahun, $dateRange = null)
     {
-        return DB::table('swakelolas')
+        $query = DB::table('swakelolas')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
             ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264')
-            ->whereNotNull('nama_satker')
-            ->groupBy('nama_satker')
-            ->get()
-            ->keyBy('nama_satker');
+            ->whereNotNull('nama_satker');
+
+        $this->applyRupPlanningSnapshotCutoff($query, 'swakelolas', 'SWAKELOLA', $dateRange);
+
+        return $query->groupBy('nama_satker')->get()->keyBy('nama_satker');
+    }
+
+    private function applyRupPlanningSnapshotCutoff($query, $table, $jenisPaket, $dateRange)
+    {
+        if (!$dateRange || ($dateRange['number'] ?? null) !== 'custom') {
+            return $query;
+        }
+
+        $cutoff = $dateRange['end']->copy();
+        $revisionTypes = ['PENGAKTIFAN', 'SATUKESATU', 'SATUKEBANYAK'];
+
+        return $query
+            ->where(function ($query) use ($table, $cutoff) {
+                $query->whereNull("{$table}.tgl_pengumuman_paket")
+                    ->orWhere("{$table}.tgl_pengumuman_paket", '<=', $cutoff);
+            })
+            ->whereNotExists(function ($query) use ($table, $jenisPaket, $cutoff, $revisionTypes) {
+                $query->select(DB::raw(1))
+                    ->from('rup_history_kaji_ulang as history')
+                    ->whereColumn('history.kd_rup_baru', "{$table}.kd_rup")
+                    ->where('history.jenis_paket', $jenisPaket)
+                    ->whereIn('history.jenis_revisi', $revisionTypes)
+                    ->where('history.tgl_kaji_ulang', '>', $cutoff);
+            });
     }
 
     private function combineDashboardAggregates($collections)

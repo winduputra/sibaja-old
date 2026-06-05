@@ -78,6 +78,22 @@ return [
                 'unique_key' => ['kd_rup'],
             ],
 
+            'rup_history_kaji_ulang' => [
+                'path' => 'rup/history-kaji-ulang',
+                'method' => 'GET',
+                'params' => ['kode_klpd' => 'D264', 'tahun' => '2026', 'jenis_paket' => 'PENYEDIA ', 'limit' => 1000],
+                'supported_years' => [2025, 2026],
+                'jenis_paket' => ['PENYEDIA ', 'SWAKELOLA'],
+                'filters' => [],
+                'required_fields' => [
+                    'kd_klpd', 'tahun_anggaran', 'jenis_paket', 'jenis_revisi',
+                    'kd_rup_baru', 'tgl_kaji_ulang'
+                ],
+                'model' => 'App\Models\RupHistoryKajiUlang',
+                'table' => 'rup_history_kaji_ulang',
+                'unique_key' => ['payload_hash'],
+            ],
+
             // TENDER: Pengadaan Barang/Jasa
             'tender_pengumuman' => [
                 'path' => 'tender/pengumuman',

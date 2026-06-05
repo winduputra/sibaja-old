@@ -195,7 +195,7 @@ class UpdateAllCommand extends Command
         $this->info("╚════════════════════════════════════════════════╝");
         $this->line("");
         $this->line("📊 Summary:");
-        $this->line("  - Total Modules: 4");
+        $this->line("  - Total Modules: 5");
         $this->line("  - With Errors: {$this->totalErrors}");
         $this->line("  - Duration: {$duration}s");
         $this->line("");

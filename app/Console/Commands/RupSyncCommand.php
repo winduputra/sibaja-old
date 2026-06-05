@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Satker;
 use App\Models\Penyedia;
+use App\Models\RupHistoryKajiUlang;
 use App\Services\InaprocinaproApiClient;
 use App\Transformers\RupTransformer;
 use Illuminate\Console\Command;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 class RupSyncCommand extends Command
 {
     protected $signature = 'inaproc:sync-rup {--type=all} {--tahun=2026} {--all-years} {--dry-run} {--limit=0}';
-    protected $description = 'Sync RUP (Master Satker, Paket Penyedia, Paket Swakelola) from INAPROC API';
+    protected $description = 'Sync RUP (Master Satker, Paket Penyedia, Paket Swakelola, History Kaji Ulang) from INAPROC API';
 
     protected $synced = 0;
     protected $errors = 0;
@@ -82,6 +83,13 @@ class RupSyncCommand extends Command
                     if (!$this->dryRun && $this->limit === 0) {
                         $this->cleanupSwakelola($tahun);
                     }
+                }
+
+                if (\in_array($type, ['all', 'history', 'history-kaji-ulang'])) {
+                    $this->info("\n╔═══════════════════════════════════════════╗");
+                    $this->info("║ Syncing RUP History Kaji Ulang for Year: {$tahun}");
+                    $this->info("╚═══════════════════════════════════════════╝");
+                    $this->syncHistoryKajiUlang();
                 }
             }
 
@@ -301,5 +309,56 @@ class RupSyncCommand extends Command
 
         $this->info("  ✓ Paket Swakelola synced: $localSynced");
         $this->synced += $localSynced;
+    }
+
+    protected function syncHistoryKajiUlang(): void
+    {
+        $apiClient = new \App\Services\InaprocinaproApiClient();
+        $endpoint = 'rup/history-kaji-ulang';
+        $tahun = $this->tahun;
+        $jenisPaketList = config('api.inaproc.endpoints.rup_history_kaji_ulang.jenis_paket', ['PENYEDIA ', 'SWAKELOLA']);
+
+        foreach ($jenisPaketList as $jenisPaket) {
+            $this->line("\n> Syncing History Kaji Ulang " . trim($jenisPaket) . "...");
+
+            $itemCount = 0;
+            $localSynced = 0;
+
+            $apiClient->paginate($endpoint,
+                ['kode_klpd' => 'D264', 'tahun' => $tahun, 'jenis_paket' => $jenisPaket, 'limit' => 1000],
+                function ($batch) use (&$itemCount, &$localSynced, $tahun) {
+                    foreach ($batch as $item) {
+                        if ($this->limit > 0 && $itemCount >= $this->limit) {
+                            return;
+                        }
+
+                        try {
+                            $transformed = RupTransformer::historyKajiUlang($item, $tahun);
+
+                            if (!$this->dryRun) {
+                                RupHistoryKajiUlang::updateOrCreate(
+                                    ['payload_hash' => $transformed['payload_hash']],
+                                    $transformed
+                                );
+                            }
+
+                            $localSynced++;
+                            $itemCount++;
+
+                            if ($localSynced % 50 === 0) {
+                                $this->info("  Processed: $localSynced history kaji ulang");
+                            }
+
+                        } catch (\Exception $e) {
+                            $this->error("  Error: " . $e->getMessage());
+                            $this->errors++;
+                        }
+                    }
+                }
+            );
+
+            $this->info("  ✓ History Kaji Ulang " . trim($jenisPaket) . " synced: $localSynced");
+            $this->synced += $localSynced;
+        }
     }
 }

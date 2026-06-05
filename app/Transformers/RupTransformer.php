@@ -100,6 +100,33 @@ class RupTransformer
     }
 
     /**
+     * Transform RUP kaji ulang history metadata.
+     */
+    public static function historyKajiUlang(array $item, $fallbackYear = null): array
+    {
+        return [
+            'tahun_anggaran' => $item['tahun_anggaran'] ?? ($item['tahun'] ?? ($fallbackYear ?? date('Y'))),
+            'kd_klpd' => $item['kd_klpd'] ?? 'D264',
+            'nama_klpd' => $item['nama_klpd'] ?? null,
+            'jenis_klpd' => $item['jenis_klpd'] ?? null,
+            'jenis_paket' => trim((string) ($item['jenis_paket'] ?? '')),
+            'jenis_revisi' => $item['jenis_revisi'] ?? null,
+            'kd_rup_baru' => self::parseInteger($item['kd_rup_baru'] ?? null),
+            'kd_rup_lama' => self::parseInteger($item['kd_rup_lama'] ?? null),
+            'kd_satker' => $item['kd_satker'] ?? null,
+            'kd_satker_str' => $item['kd_satker_str'] ?? null,
+            'nama_satker' => $item['nama_satker'] ?? null,
+            'tgl_kaji_ulang' => self::parseDateTime($item['tgl_kaji_ulang'] ?? null),
+            'alasan_kajiulang' => $item['alasan_kajiulang'] ?? null,
+            'last_update_ref' => self::parseDateTime($item['last_update_ref'] ?? null),
+            'payload_hash' => self::historyPayloadHash($item, $fallbackYear),
+            'raw_payload' => $item,
+            'sync_source' => 'inaproc_v1',
+            'last_synced_at' => now(),
+        ];
+    }
+
+    /**
      * Parse number string that might have formatting
      */
     protected static function parseNumber($value)
@@ -119,6 +146,31 @@ class RupTransformer
         return (float) $value ?: 0;
     }
 
+    protected static function parseInteger($value)
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
+    protected static function historyPayloadHash(array $item, $fallbackYear = null): string
+    {
+        $key = [
+            'kd_klpd' => $item['kd_klpd'] ?? 'D264',
+            'tahun_anggaran' => $item['tahun_anggaran'] ?? ($item['tahun'] ?? ($fallbackYear ?? date('Y'))),
+            'jenis_paket' => trim((string) ($item['jenis_paket'] ?? '')),
+            'jenis_revisi' => $item['jenis_revisi'] ?? null,
+            'kd_rup_baru' => $item['kd_rup_baru'] ?? null,
+            'kd_rup_lama' => $item['kd_rup_lama'] ?? null,
+            'tgl_kaji_ulang' => $item['tgl_kaji_ulang'] ?? null,
+            'last_update_ref' => $item['last_update_ref'] ?? null,
+        ];
+
+        return hash('sha256', json_encode($key, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
     /**
      * Convert ISO 8601 datetime to MySQL datetime format
      */
@@ -129,16 +181,7 @@ class RupTransformer
         }
 
         try {
-            // Handle ISO 8601 format: 2026-03-05T22:38:31.06Z
-            // Convert to: 2026-03-05 22:38:31
-            $dt = \DateTime::createFromFormat('Y-m-d\TH:i:s*', $value);
-            if ($dt === false) {
-                // Try alternative formats
-                $dt = \DateTime::createFromFormat('Y-m-d H:i:s', $value);
-            }
-            if ($dt === false) {
-                return null;
-            }
+            $dt = new \DateTime($value);
             return $dt->format('Y-m-d H:i:s');
         } catch (\Exception $e) {
             return null;

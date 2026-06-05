@@ -149,16 +149,7 @@ class NonTenderTransformer
         }
 
         try {
-            // Handle ISO 8601 format: 2026-03-05T22:38:31.06Z
-            // Convert to: 2026-03-05 22:38:31
-            $dt = \DateTime::createFromFormat('Y-m-d\TH:i:s*', $value);
-            if ($dt === false) {
-                // Try alternative formats
-                $dt = \DateTime::createFromFormat('Y-m-d H:i:s', $value);
-            }
-            if ($dt === false) {
-                return null;
-            }
+            $dt = new \DateTime($value);
             return $dt->format('Y-m-d H:i:s');
         } catch (\Exception $e) {
             return null;
