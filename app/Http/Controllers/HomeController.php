@@ -539,6 +539,28 @@ return view('users.home', compact(
         });
     }
 
+    private function applyDashboardDateRangeWithYearFloor($query, $column, $dateRange, $tahun)
+    {
+        if (!$dateRange) {
+            return $query;
+        }
+
+        $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay()->toDateTimeString();
+        $rangeStart = $dateRange['start']->copy()->toDateTimeString();
+        $rangeEnd = $dateRange['end']->copy()->toDateTimeString();
+        $flooredDateExpression = "CASE WHEN {$column} < ? THEN ? ELSE {$column} END";
+
+        return $query->where(function ($query) use ($column, $flooredDateExpression, $yearStart, $rangeStart, $rangeEnd) {
+            $query->whereNotNull($column)
+                ->whereRaw("{$flooredDateExpression} BETWEEN ? AND ?", [
+                    $yearStart,
+                    $yearStart,
+                    $rangeStart,
+                    $rangeEnd,
+                ]);
+        });
+    }
+
     private function isFullBudgetYearRange($dateRange, $tahun)
     {
         if (!$dateRange) {
@@ -592,10 +614,10 @@ return view('users.home', compact(
             ->whereNotNull('nama_satker')
             ->groupBy('nama_satker');
 
-        $this->applyDashboardDateRange($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
-        $this->applyDashboardDateRange($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
         if (!$this->isFullBudgetYearRange($dateRange, $tahun)) {
-            $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+            $this->applyDashboardDateRangeWithYearFloor($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
         }
 
         $swakelolaRealisasiQuery = DB::table('swakelola_realisasi')
@@ -604,7 +626,7 @@ return view('users.home', compact(
             ->whereNotNull('nama_satker')
             ->groupBy('nama_satker');
 
-        $this->applyDashboardDateRange($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
 
         $tenderRealisasi = $this->combineDashboardAggregates([
             $tenderQuery->get(),
@@ -715,12 +737,12 @@ return view('users.home', compact(
             ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264');
 
-        $this->applyDashboardDateRange($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
-        $this->applyDashboardDateRange($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
         if (!$this->isFullBudgetYearRange($dateRange, $tahun)) {
-            $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+            $this->applyDashboardDateRangeWithYearFloor($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
         }
-        $this->applyDashboardDateRange($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
 
         foreach ($tenderQuery->get() as $row) {
             $this->addMethodDetailBucket($rows, $row->metode, 'realization', $row->paket, $row->nilai);
