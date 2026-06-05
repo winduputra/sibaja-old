@@ -539,6 +539,26 @@ return view('users.home', compact(
         });
     }
 
+    private function isFullBudgetYearRange($dateRange, $tahun)
+    {
+        if (!$dateRange) {
+            return false;
+        }
+
+        return $dateRange['start']->isSameDay(Carbon::create($tahun, 1, 1)->startOfDay())
+            && $dateRange['end']->isSameDay(Carbon::create($tahun, 12, 31)->endOfDay());
+    }
+
+    private function nonTenderRealizationAmountExpression($methodColumn, $tableAlias)
+    {
+        return "CASE
+            WHEN {$methodColumn} LIKE '%Pengadaan Langsung%' THEN ROUND(COALESCE({$tableAlias}.nilai_negosiasi, 0), 0)
+            WHEN {$methodColumn} LIKE '%Penunjukan Langsung%' THEN ROUND(COALESCE({$tableAlias}.nilai_kontrak, 0), 0)
+            WHEN COALESCE({$tableAlias}.nilai_negosiasi, 0) > 0 THEN ROUND({$tableAlias}.nilai_negosiasi, 0)
+            ELSE ROUND(COALESCE({$tableAlias}.nilai_kontrak, 0), 0)
+        END";
+    }
+
     private function buildDashboardRecaps($tahun, $dateRange = null)
     {
         $satkers = $this->dashboardSatkers($tahun);
@@ -547,19 +567,22 @@ return view('users.home', compact(
         $epurchasingPlanning = $this->penyediaPlanningBySatker($tahun, 'epurchasing', $dateRange);
         $swakelolaPlanning = $this->swakelolaPlanningBySatker($tahun, $dateRange);
 
-        $tenderQuery = DB::table('tender_pengumuman_data')
-            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun', $tahun)
-            ->where('status_tender', '!=', 'Gagal/Batal')
-            ->whereNotNull('nama_satker')
-            ->groupBy('nama_satker');
+        $tenderQuery = DB::table('tender_selesai_nilai_data as nilai')
+            ->join('tender_pengumuman_data as pengumuman', 'pengumuman.kd_tender', '=', 'nilai.kd_tender')
+            ->select('pengumuman.nama_satker', DB::raw('COUNT(DISTINCT nilai.kd_tender) as paket'), DB::raw('COALESCE(SUM(ROUND(nilai.nilai_kontrak, 0)), 0) as nilai'))
+            ->where('nilai.tahun', $tahun)
+            ->where('nilai.kd_klpd', 'D264')
+            ->whereNotNull('pengumuman.nama_satker')
+            ->groupBy('pengumuman.nama_satker');
 
-        $nonTenderQuery = DB::table('non_tender_pengumuman')
-            ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
-            ->where('status_nontender', '!=', 'Gagal/Batal')
-            ->whereNotNull('nama_satker')
-            ->groupBy('nama_satker');
+        $nonTenderAmount = $this->nonTenderRealizationAmountExpression('pengumuman.mtd_pemilihan', 'selesai');
+        $nonTenderQuery = DB::table('non_tender_selesai as selesai')
+            ->join('non_tender_pengumuman as pengumuman', 'pengumuman.kd_nontender', '=', 'selesai.kd_nontender')
+            ->select('pengumuman.nama_satker', DB::raw('COUNT(DISTINCT selesai.kd_nontender) as paket'), DB::raw("COALESCE(SUM({$nonTenderAmount}), 0) as nilai"))
+            ->where('selesai.tahun_anggaran', $tahun)
+            ->where('pengumuman.kd_klpd', 'D264')
+            ->whereNotNull('pengumuman.nama_satker')
+            ->groupBy('pengumuman.nama_satker');
 
 
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
@@ -569,9 +592,11 @@ return view('users.home', compact(
             ->whereNotNull('nama_satker')
             ->groupBy('nama_satker');
 
-        $this->applyDashboardDateRange($tenderQuery, 'tgl_pengumuman_tender', $dateRange, $tahun);
-        $this->applyDashboardDateRangeExpression($nonTenderQuery, 'COALESCE(tgl_pengumuman_nontender, tgl_buat_paket)', $dateRange, $tahun);
-        $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+        $this->applyDashboardDateRange($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
+        $this->applyDashboardDateRange($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
+        if (!$this->isFullBudgetYearRange($dateRange, $tahun)) {
+            $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+        }
 
         $swakelolaRealisasiQuery = DB::table('swakelola_realisasi')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
@@ -664,19 +689,20 @@ return view('users.home', compact(
 
         $this->addMethodDetailBucket($rows, 'Swakelola', 'planning', $swakelolaPlanning->paket ?? 0, $swakelolaPlanning->nilai ?? 0);
 
-        $tenderQuery = DB::table('tender_pengumuman_data')
-            ->select('mtd_pemilihan as metode', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun', $tahun)
-            ->where('kd_klpd', 'D264')
-            ->where('status_tender', '!=', 'Gagal/Batal')
-            ->groupBy('mtd_pemilihan');
+        $tenderQuery = DB::table('tender_selesai_nilai_data as nilai')
+            ->join('tender_pengumuman_data as pengumuman', 'pengumuman.kd_tender', '=', 'nilai.kd_tender')
+            ->select('pengumuman.mtd_pemilihan as metode', DB::raw('COUNT(DISTINCT nilai.kd_tender) as paket'), DB::raw('COALESCE(SUM(ROUND(nilai.nilai_kontrak, 0)), 0) as nilai'))
+            ->where('nilai.tahun', $tahun)
+            ->where('nilai.kd_klpd', 'D264')
+            ->groupBy('pengumuman.mtd_pemilihan');
 
-        $nonTenderQuery = DB::table('non_tender_pengumuman')
-            ->select('mtd_pemilihan as metode', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
-            ->where('kd_klpd', 'D264')
-            ->where('status_nontender', '!=', 'Gagal/Batal')
-            ->groupBy('mtd_pemilihan');
+        $nonTenderAmount = $this->nonTenderRealizationAmountExpression('pengumuman.mtd_pemilihan', 'selesai');
+        $nonTenderQuery = DB::table('non_tender_selesai as selesai')
+            ->join('non_tender_pengumuman as pengumuman', 'pengumuman.kd_nontender', '=', 'selesai.kd_nontender')
+            ->select('pengumuman.mtd_pemilihan as metode', DB::raw('COUNT(DISTINCT selesai.kd_nontender) as paket'), DB::raw("COALESCE(SUM({$nonTenderAmount}), 0) as nilai"))
+            ->where('selesai.tahun_anggaran', $tahun)
+            ->where('pengumuman.kd_klpd', 'D264')
+            ->groupBy('pengumuman.mtd_pemilihan');
 
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
             ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
@@ -689,9 +715,11 @@ return view('users.home', compact(
             ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264');
 
-        $this->applyDashboardDateRange($tenderQuery, 'tgl_pengumuman_tender', $dateRange, $tahun);
-        $this->applyDashboardDateRangeExpression($nonTenderQuery, 'COALESCE(tgl_pengumuman_nontender, tgl_buat_paket)', $dateRange, $tahun);
-        $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+        $this->applyDashboardDateRange($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
+        $this->applyDashboardDateRange($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
+        if (!$this->isFullBudgetYearRange($dateRange, $tahun)) {
+            $this->applyDashboardDateRange($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
+        }
         $this->applyDashboardDateRange($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
 
         foreach ($tenderQuery->get() as $row) {
