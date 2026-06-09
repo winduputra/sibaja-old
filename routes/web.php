@@ -38,6 +38,26 @@ Route::get('/graph-report', [FrontController::class, 'report'])->name('report');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/home', [HomeController::class, 'index'])->middleware('auth')->name('home');
 
+Route::view('/realisasi/swakelola', 'placeholders.not-created', [
+    'title' => 'Realisasi Swakelola',
+])->middleware('auth')->name('realisasi.swakelola');
+
+Route::view('/realisasi/pencatatan/non-tender', 'placeholders.not-created', [
+    'title' => 'Pencatatan Non Tender',
+])->middleware('auth')->name('realisasi.pencatatan.non-tender');
+
+Route::view('/realisasi/pencatatan/swakelola', 'placeholders.not-created', [
+    'title' => 'Pencatatan Swakelola',
+])->middleware('auth')->name('realisasi.pencatatan.swakelola');
+
+Route::view('/monitoring/progress-pengadaan/penilaian-penyedia/tender', 'placeholders.not-created', [
+    'title' => 'Penilaian Penyedia Tender',
+])->middleware('auth')->name('monitoring.progress-pengadaan.penilaian-penyedia.tender');
+
+Route::view('/monitoring/progress-pengadaan/penilaian-penyedia/non-tender', 'placeholders.not-created', [
+    'title' => 'Penilaian Penyedia Non Tender',
+])->middleware('auth')->name('monitoring.progress-pengadaan.penilaian-penyedia.non-tender');
+
 Route::group([
     'prefix' => 'non-tender',
     'as' => 'non-tender.',

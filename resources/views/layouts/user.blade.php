@@ -215,100 +215,86 @@
         <li class="nav-item">
           <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">Dashboard</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('tender.list') ? 'active' : '' }}" href="{{ route('tender.list') }}">Tender</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('non-tender.list') ? 'active' : '' }}" href="{{ route('non-tender.list') }}">Non Tender</a>
-        </li>
-
-        <!-- E-Purchasing Dropdown -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {{ request()->is('report/ekatalog*') || request()->is('report/tokodaring*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown">E-Purchasing</a>
+          <a class="nav-link dropdown-toggle {{ request()->routeIs('report.rup', 'monitoring.rup.*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown">RUP</a>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{{ route('report.ekatalog') }}">E-Katalog</a></li>
-            <li><a class="dropdown-item" href="{{ route('report.tokodaring') }}">Toko Daring</a></li>
+            <li><a class="dropdown-item {{ request()->routeIs('report.rup') ? 'active' : '' }}" href="{{ route('report.rup') }}">Data RUP</a></li>
+            <li><a class="dropdown-item {{ request()->routeIs('monitoring.rup.*') ? 'active' : '' }}" href="{{ route('monitoring.rup.index') }}">RUP Monitoring</a></li>
           </ul>
         </li>
 
-        <li class="nav-item">
-          <a class="nav-link {{ request()->routeIs('report.rup') ? 'active' : '' }}" href="{{ route('report.rup') }}">RUP</a>
-        </li>
-
-        <!-- Summary Report Dropdown -->
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {{ request()->routeIs('non-tender.realization', 'tender.realization') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown">Summary Report</a>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item {{ request()->routeIs('non-tender.realization') ? 'active' : '' }}" href="{{ route('non-tender.realization') }}">Realisasi Non Tender</a></li>
-            <li><a class="dropdown-item {{ request()->routeIs('tender.realization') ? 'active' : '' }}" href="{{ route('tender.realization') }}">Realisasi Tender</a></li>
+        <li class="nav-item dropdown position-relative">
+          <a class="nav-link dropdown-toggle {{ request()->routeIs('tender.realization', 'non-tender.realization', 'report.ekatalog', 'report.tokodaring', 'realisasi.*') ? 'active' : '' }}"
+             href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Realisasi
+          </a>
+          <ul class="dropdown-menu shadow rounded-3 p-1 bg-white">
+            <li><a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('tender.realization') ? 'active' : '' }}" href="{{ route('tender.realization') }}">Tender</a></li>
+            <li><a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('non-tender.realization') ? 'active' : '' }}" href="{{ route('non-tender.realization') }}">Non Tender</a></li>
+            <li><a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('report.ekatalog') ? 'active' : '' }}" href="{{ route('report.ekatalog') }}">E-Purchasing</a></li>
+            <li><a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('realisasi.swakelola') ? 'active' : '' }}" href="{{ route('realisasi.swakelola') }}">Swakelola</a></li>
+            <li class="dropdown-submenu position-relative">
+              <a class="dropdown-item d-flex justify-content-between align-items-center px-3 py-2" href="#" aria-expanded="false">
+                <span class="d-flex align-items-center">
+                  Pencatatan
+                  <i class="bi bi-caret-down-fill ms-1 transition"></i>
+                </span>
+              </a>
+              <ul class="collapse list-unstyled bg-white">
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('realisasi.pencatatan.non-tender') ? 'active' : '' }}" href="{{ route('realisasi.pencatatan.non-tender') }}">Non Tender</a></li>
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('realisasi.pencatatan.swakelola') ? 'active' : '' }}" href="{{ route('realisasi.pencatatan.swakelola') }}">Swakelola</a></li>
+              </ul>
+            </li>
+            <li><a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('report.tokodaring') ? 'active' : '' }}" href="{{ route('report.tokodaring') }}">Toko Daring</a></li>
           </ul>
         </li>
 
-   <!-- Monitoring Dropdown -->
-<li class="nav-item dropdown position-relative">
-  <a class="nav-link dropdown-toggle {{ request()->is('monitoring*') ? 'active' : '' }}"
-     href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-    Monitoring
-  </a>
-
-  <ul class="dropdown-menu shadow rounded-3 p-1 bg-white">
-    <li>
-      <a class="dropdown-item px-3 py-2 rounded-2" href="{{ route('monitoring.realisasi.satker') }}">
-        Realisasi Pengadaan
-      </a>
-    </li>
-    <li>
-      <a class="dropdown-item px-3 py-2 rounded-2" href="{{ route('monitoring.rekap.realisasi-berlangsung') }}">
-        Realisasi Berlangsung
-      </a>
-    </li>
-    <li>
-      <a class="dropdown-item px-3 py-2 rounded-2" href="{{ route('monitoring.rekap.realisasi') }}">
-        Realisasi Selesai
-      </a>
-    </li>
-    <li>
-      <a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('monitoring.rup.index', 'monitoring.rup.detail', 'monitoring.rup.export-pdf') ? 'active' : '' }}" 
-         href="{{ route('monitoring.rup.index') }}">
-        RUP Monitoring
-      </a>
-    </li>
-    <li>
-      <a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('monitoring.pdn-umk-tracker') ? 'active' : '' }}" 
-         href="{{ route('monitoring.pdn-umk-tracker') }}">
-        PDN/UMK Tracker
-      </a>
-    </li>
-
-    <li class="dropdown-submenu position-relative">
-  <a class="dropdown-item d-flex justify-content-between align-items-center px-3 py-2"
-     href="#" aria-expanded="false" id="submenuToggle">
-    <span class="d-flex align-items-center">
-      Monitoring Belum Input
-      <i class="bi bi-caret-down-fill ms-1 transition" id="arrowBelumInput"></i>
-    </span>
-  </a>
-
-  <ul class="collapse list-unstyled bg-white" id="submenuBelumInput">
-    <li>
-      <a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.kontrak') ? 'active' : '' }}" 
-         href="{{ route('monitoring.kontrak') }}">
-        Kontrak Tender
-      </a>
-    </li>
-    <li>
-      <a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.kontrak.non_tender') ? 'active' : '' }}" 
-         href="{{ route('monitoring.kontrak.non_tender') }}">
-        Kontrak Non Tender
-      </a>
-    </li>
-  </ul>
-</li>
-
-
-
-      </ul>
-    </li>
+        <li class="nav-item dropdown position-relative">
+          <a class="nav-link dropdown-toggle {{ request()->routeIs('monitoring.pdn-umk-tracker', 'monitoring.kontrak*', 'monitoring.realisasi.*', 'monitoring.rekap.*', 'monitoring.progress-pengadaan.*') ? 'active' : '' }}"
+             href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Monitoring
+          </a>
+          <ul class="dropdown-menu shadow rounded-3 p-1 bg-white">
+            <li><a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('monitoring.pdn-umk-tracker') ? 'active' : '' }}" href="{{ route('monitoring.pdn-umk-tracker') }}">PDN/UMK Tracker</a></li>
+            <li class="dropdown-submenu position-relative">
+              <a class="dropdown-item d-flex justify-content-between align-items-center px-3 py-2" href="#" aria-expanded="false">
+                <span class="d-flex align-items-center">
+                  Kontrak
+                  <i class="bi bi-caret-down-fill ms-1 transition"></i>
+                </span>
+              </a>
+              <ul class="collapse list-unstyled bg-white">
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.kontrak') ? 'active' : '' }}" href="{{ route('monitoring.kontrak') }}">Tender</a></li>
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.kontrak.non_tender') ? 'active' : '' }}" href="{{ route('monitoring.kontrak.non_tender') }}">Non Tender</a></li>
+              </ul>
+            </li>
+            <li class="dropdown-submenu position-relative">
+              <a class="dropdown-item d-flex justify-content-between align-items-center px-3 py-2" href="#" aria-expanded="false">
+                <span class="d-flex align-items-center">
+                  Progress Pengadaan
+                  <i class="bi bi-caret-down-fill ms-1 transition"></i>
+                </span>
+              </a>
+              <ul class="collapse list-unstyled bg-white">
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.realisasi.satker') ? 'active' : '' }}" href="{{ route('monitoring.realisasi.satker') }}">Realisasi Satker</a></li>
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.rekap.realisasi-berlangsung') ? 'active' : '' }}" href="{{ route('monitoring.rekap.realisasi-berlangsung') }}">Berlangsung</a></li>
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.rekap.realisasi') ? 'active' : '' }}" href="{{ route('monitoring.rekap.realisasi') }}">Selesai</a></li>
+              </ul>
+            </li>
+            <li class="dropdown-submenu position-relative">
+              <a class="dropdown-item d-flex justify-content-between align-items-center px-3 py-2" href="#" aria-expanded="false">
+                <span class="d-flex align-items-center">
+                  Penilaian Penyedia
+                  <i class="bi bi-caret-down-fill ms-1 transition"></i>
+                </span>
+              </a>
+              <ul class="collapse list-unstyled bg-white">
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.progress-pengadaan.penilaian-penyedia.tender') ? 'active' : '' }}" href="{{ route('monitoring.progress-pengadaan.penilaian-penyedia.tender') }}">Tender</a></li>
+                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.progress-pengadaan.penilaian-penyedia.non-tender') ? 'active' : '' }}" href="{{ route('monitoring.progress-pengadaan.penilaian-penyedia.non-tender') }}">Non Tender</a></li>
+              </ul>
+            </li>
+          </ul>
+        </li>
   </ul>
 
   <!-- Page Specific Filters -->
