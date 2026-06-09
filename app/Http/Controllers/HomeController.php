@@ -19,15 +19,17 @@ class HomeController extends Controller
 {
     public function index(Request $request)
     {
-        $tahun = $request->input('tahun', Carbon::now()->year);
+        $tahun = $request->input('tahun', 'all');
+        $availableYears = $this->availableDashboardYears($tahun);
+        $dashboardYears = $tahun === 'all' ? $availableYears : collect([$tahun]);
         $kategoriChart2 = $request->input('kategori_chart2', 'non_tender'); // default: non_tender
-        $dashboardFilter = $this->resolveDashboardWeekFilter($request, $tahun);
+        $dashboardFilter = $this->resolveDashboardWeekFilter($request, $tahun, $dashboardYears);
         $monthOptions = $this->dashboardMonthOptions();
         $selectedMonth = $dashboardFilter['month'];
         $selectedWeek = $dashboardFilter['week'];
         $availableWeeks = $dashboardFilter['weeks'];
         $activeWeekRange = $dashboardFilter['range'];
-        $customDateRange = $this->resolveDashboardCustomDateRange($request, $tahun);
+        $customDateRange = $this->resolveDashboardCustomDateRange($request, $tahun, $dashboardYears);
         $activeDashboardRange = $customDateRange ?: $activeWeekRange;
         $selectedStartDate = $request->input('tanggal_mulai');
         $selectedEndDate = $request->input('tanggal_selesai');
@@ -41,11 +43,15 @@ class HomeController extends Controller
         $belaCount      = getBelaCount();
         
         // ✅ CHART 1: Perbandingan Total Data Tender vs Non Tender per Tahun
-        $totalNonTender = NonTenderPengumuman::where('tahun_anggaran', $tahun)
+        $totalNonTenderQuery = NonTenderPengumuman::query();
+        $this->applyDashboardYearFilter($totalNonTenderQuery, 'tahun_anggaran', $dashboardYears);
+        $totalNonTender = $totalNonTenderQuery
             ->whereIn('status_nontender', ['Selesai', 'Berlangsung'])
             ->count();        
 
-        $totalTender = TenderPengumumanData::where('tahun', $tahun)
+        $totalTenderQuery = TenderPengumumanData::query();
+        $this->applyDashboardYearFilter($totalTenderQuery, 'tahun', $dashboardYears);
+        $totalTender = $totalTenderQuery
             ->whereIn('status_tender', ['Selesai', 'Berlangsung'])
             ->count();  ;
 
@@ -56,14 +62,17 @@ class HomeController extends Controller
         
         // ✅ CHART 2: Distribusi Jenis Pengadaan Berdasarkan Kategori (Tender / Non Tender)
         if ($kategoriChart2 == 'tender') {
-            $chart2Data = TenderPengumumanData::where('tahun', $tahun)
-
+            $chart2Query = TenderPengumumanData::query();
+            $this->applyDashboardYearFilter($chart2Query, 'tahun', $dashboardYears);
+            $chart2Data = $chart2Query
                 ->whereIn('status_tender', ['Selesai', 'Berlangsung'])
                 ->select('jenis_pengadaan', DB::raw('COUNT(*) as jumlah'))
                 ->groupBy('jenis_pengadaan')
                 ->pluck('jumlah', 'jenis_pengadaan');
         } else {
-            $chart2Data = NonTenderPengumuman::where('tahun_anggaran', $tahun)
+            $chart2Query = NonTenderPengumuman::query();
+            $this->applyDashboardYearFilter($chart2Query, 'tahun_anggaran', $dashboardYears);
+            $chart2Data = $chart2Query
                 ->whereIn('status_nontender', ['Selesai', 'Berlangsung'])
                 ->select('jenis_pengadaan', DB::raw('COUNT(*) as jumlah'))
                 ->groupBy('jenis_pengadaan')
@@ -72,7 +81,9 @@ class HomeController extends Controller
         }        
 
         // ✅ Menghitung Total untuk Non Tender
-        $totalNonTenderData = NonTenderPengumuman::where('tahun_anggaran', $tahun)
+        $totalNonTenderDataQuery = NonTenderPengumuman::query();
+        $this->applyDashboardYearFilter($totalNonTenderDataQuery, 'tahun_anggaran', $dashboardYears);
+        $totalNonTenderData = $totalNonTenderDataQuery
             ->whereIn('status_nontender', ['Selesai', 'Berlangsung'])
             ->select(
                 DB::raw('COUNT(*) as package_count'),
@@ -90,7 +101,9 @@ class HomeController extends Controller
         ];
 
         // ✅ Menghitung Total untuk Tender
-        $totalTenderData = TenderPengumumanData::where('tahun', $tahun)
+        $totalTenderDataQuery = TenderPengumumanData::query();
+        $this->applyDashboardYearFilter($totalTenderDataQuery, 'tahun', $dashboardYears);
+        $totalTenderData = $totalTenderDataQuery
             ->whereIn('status_tender', ['Selesai', 'Berlangsung'])
             ->select(
                 DB::raw('COUNT(*) as package_count'),
@@ -109,7 +122,9 @@ class HomeController extends Controller
 
 
         // ✅ Menghitung Total untuk e-Katalog V5
-        $totalEkatalogV5Data = EkatalogV5Paket::where('tahun_anggaran', $tahun)
+        $totalEkatalogV5DataQuery = EkatalogV5Paket::query();
+        $this->applyDashboardYearFilter($totalEkatalogV5DataQuery, 'tahun_anggaran', $dashboardYears);
+        $totalEkatalogV5Data = $totalEkatalogV5DataQuery
             ->select(
                 DB::raw('COUNT(DISTINCT kd_paket) as package_count'),  // DISTINCT untuk menghitung paket yang unik
                 DB::raw('SUM(total_harga) as total_transaksi') // Total transaksi untuk V5
@@ -122,7 +137,9 @@ class HomeController extends Controller
         ];
 
         // ✅ Menghitung Total untuk e-Katalog V6
-        $totalEkatalogV6Data = EkatalogV6Paket::where('tahun_anggaran', $tahun)
+        $totalEkatalogV6DataQuery = EkatalogV6Paket::query();
+        $this->applyDashboardYearFilter($totalEkatalogV6DataQuery, 'tahun_anggaran', $dashboardYears);
+        $totalEkatalogV6Data = $totalEkatalogV6DataQuery
             ->select(
                 DB::raw('COUNT(DISTINCT kd_paket) as package_count'),  // DISTINCT untuk menghitung paket yang unik
                 DB::raw('SUM(total_harga) as total_transaksi') // Total transaksi untuk V6
@@ -135,17 +152,23 @@ class HomeController extends Controller
         ];
 
         // ✅ Menghitung Total untuk RUP (StrukturAnggaran, Swakelola, Penyedia)
-        $strukturAnggaran = StrukturAnggaran::where('tahun_anggaran', $tahun)
+        $strukturAnggaranQuery = StrukturAnggaran::query();
+        $this->applyDashboardYearFilter($strukturAnggaranQuery, 'tahun_anggaran', $dashboardYears);
+        $strukturAnggaran = $strukturAnggaranQuery
             ->where('kd_klpd', 'D264')
             ->where('nama_klpd', 'Provinsi Lampung')
             ->get();
         
-        $swakelola = Swakelola::where('tahun_anggaran', $tahun)
+        $swakelolaQuery = Swakelola::query();
+        $this->applyDashboardYearFilter($swakelolaQuery, 'tahun_anggaran', $dashboardYears);
+        $swakelola = $swakelolaQuery
             ->where('kd_klpd', 'D264')
             ->where('nama_klpd', 'Provinsi Lampung')
             ->get();
 
-        $penyedia = Penyedia::where('tahun_anggaran', $tahun)
+        $penyediaQuery = Penyedia::query();
+        $this->applyDashboardYearFilter($penyediaQuery, 'tahun_anggaran', $dashboardYears);
+        $penyedia = $penyediaQuery
             ->where('kd_klpd', 'D264')
             ->where('nama_klpd', 'Provinsi Lampung')
             ->get();
@@ -163,11 +186,15 @@ class HomeController extends Controller
         ];
 
         // ✅ Menghitung Total untuk Toko Daring (similar to TokoDaringReportController logic)
-        $dataTokoDaring = TokoDaring::where('tahun', $tahun)
+        $dataTokoDaringQuery = TokoDaring::query();
+        $this->applyDashboardYearFilter($dataTokoDaringQuery, 'tahun', $dashboardYears);
+        $dataTokoDaring = $dataTokoDaringQuery
             ->get();
 
         // Gabungkan nama satker dari StrukturAnggaran
-        $satkerFromStruktur = StrukturAnggaran::where('tahun_anggaran', $tahun)
+        $satkerFromStrukturQuery = StrukturAnggaran::query();
+        $this->applyDashboardYearFilter($satkerFromStrukturQuery, 'tahun_anggaran', $dashboardYears);
+        $satkerFromStruktur = $satkerFromStrukturQuery
             ->pluck('nama_satker', 'kd_satker');
         
         // Gabungkan nama satker dari TokoDaring
@@ -196,40 +223,21 @@ class HomeController extends Controller
         $totalTokoDaringTransaksi = $rekapTokoDaring->sum('total_transaksi');
         $totalTokoDaringNilai = $rekapTokoDaring->sum('nilai_transaksi');
 
-        // ✅ Tahun tersedia
-        $availableYears = collect()
-            ->merge(DB::table('struktur_anggarans')->distinct()->pluck('tahun_anggaran'))
-            ->merge(DB::table('penyedias')->distinct()->pluck('tahun_anggaran'))
-            ->merge(DB::table('swakelolas')->distinct()->pluck('tahun_anggaran'))
-            ->merge(DB::table('tender_selesai_data')->distinct()->pluck('tahun'))
-            ->merge(DB::table('ekatalog_v5_pakets')->distinct()->pluck('tahun_anggaran'))
-            ->merge(DB::table('ekatalog_v6_pakets')->distinct()->pluck('tahun_anggaran'))
-            ->merge(DB::table('swakelola_realisasi')->distinct()->pluck('tahun_anggaran'))
-            ->push($tahun)
-            ->filter()
-            ->unique()
-            ->sortDesc()
-            ->values();
+// ✅ Definisikan tahun yang digunakan untuk rekap gabungan
+$tahunList = $dashboardYears->values()->all();
 
-        if ($availableYears->isEmpty()) {
-            $availableYears = collect([$tahun]);
-        }
-
-// ✅ Definisikan tahun yang ingin digabung
-$tahunList = [2024, 2025];
-
-// ✅ Ambil total belanja pengadaan (RUP Struktur Anggaran) untuk tahun 2024 & 2025
+// ✅ Ambil total belanja pengadaan (RUP Struktur Anggaran) untuk tahun terpilih
 $totalBelanja = DB::table('struktur_anggarans')
     ->where('kd_klpd', 'D264')
     ->whereIn('tahun_anggaran', $tahunList)
     ->sum('belanja_pengadaan');
 
-// ✅ Ambil semua satker di struktur anggaran tahun 2024 & 2025
+// ✅ Ambil semua satker di struktur anggaran tahun terpilih
 $satkers = DB::table('struktur_anggarans')
     ->select('kd_satker', 'nama_satker')
     ->whereIn('tahun_anggaran', $tahunList)
     ->where('kd_klpd', 'D264')
-    ->distinct() // kalau perlu supaya satker tidak duplikat dari dua tahun
+    ->distinct() // kalau perlu supaya satker tidak duplikat dari beberapa tahun
     ->get();
 
 // ✅ Looping total transaksi per Satker
@@ -279,8 +287,8 @@ foreach ($satkers as $satker) {
 $totalPersen = $totalBelanja > 0 ? round(($totalTransaksi / $totalBelanja) * 100, 2) : 0;
 
 $today = Carbon::now();
-$dashboardRecaps = $this->buildDashboardRecaps($tahun, $activeDashboardRange);
-$methodDetailRows = $this->buildMethodDetailRows($tahun, $activeDashboardRange);
+$dashboardRecaps = $this->buildDashboardRecaps($tahun, $activeDashboardRange, $dashboardYears);
+$methodDetailRows = $this->buildMethodDetailRows($tahun, $activeDashboardRange, $dashboardYears);
 
 return view('users.home', compact(
     'today',
@@ -321,18 +329,24 @@ return view('users.home', compact(
 
     public function updateChartData(Request $request)
 {
-    $tahun = $request->input('tahun', Carbon::now()->year);
+    $tahun = $request->input('tahun', 'all');
+    $availableYears = $this->availableDashboardYears($tahun);
+    $dashboardYears = $tahun === 'all' ? $availableYears : collect([$tahun]);
     $kategoriChart2 = $request->input('kategori_chart2', 'non_tender');
 
     // CHART 2: Update data berdasarkan kategori
     if ($kategoriChart2 == 'tender') {
-        $chart2Data = TenderPengumumanData::where('tahun', $tahun)
+        $chart2Query = TenderPengumumanData::query();
+        $this->applyDashboardYearFilter($chart2Query, 'tahun', $dashboardYears);
+        $chart2Data = $chart2Query
             ->whereIn('status_tender', ['Selesai', 'Berlangsung'])
             ->select('jenis_pengadaan', DB::raw('COUNT(*) as jumlah'))
             ->groupBy('jenis_pengadaan')
             ->pluck('jumlah', 'jenis_pengadaan');
     } else {
-        $chart2Data = NonTenderPengumuman::where('tahun_anggaran', $tahun)
+        $chart2Query = NonTenderPengumuman::query();
+        $this->applyDashboardYearFilter($chart2Query, 'tahun_anggaran', $dashboardYears);
+        $chart2Data = $chart2Query
             ->whereIn('status_nontender', ['Selesai', 'Berlangsung'])
             ->select('jenis_pengadaan', DB::raw('COUNT(*) as jumlah'))
             ->groupBy('jenis_pengadaan')
@@ -343,8 +357,19 @@ return view('users.home', compact(
     return response()->json(['chart2Data' => $chart2Data]);
 }
 
-    private function resolveDashboardWeekFilter(Request $request, $tahun)
+    private function resolveDashboardWeekFilter(Request $request, $tahun, $dashboardYears)
     {
+        if ($tahun === 'all') {
+            $weeks = $this->dashboardWeeksForAllYears($dashboardYears);
+
+            return [
+                'month' => 'all',
+                'week' => 'all',
+                'weeks' => $weeks,
+                'range' => $weeks->get('all'),
+            ];
+        }
+
         $year = (int) $tahun;
         $requestedMonth = $request->input('bulan');
         $month = $requestedMonth === 'all' ? 'all' : (int) $request->input('bulan', Carbon::now()->year === $year ? Carbon::now()->month : 1);
@@ -364,6 +389,25 @@ return view('users.home', compact(
             'weeks' => $weeks,
             'range' => $weeks->get($week),
         ];
+    }
+
+    private function dashboardWeeksForAllYears($dashboardYears)
+    {
+        $years = collect($dashboardYears)->filter()->values();
+        $startYear = (int) ($years->min() ?: Carbon::now()->year);
+        $endYear = (int) ($years->max() ?: Carbon::now()->year);
+        $start = Carbon::create($startYear, 1, 1)->startOfDay();
+        $end = Carbon::create($endYear, 12, 31)->endOfDay();
+
+        return collect([
+            'all' => [
+                'number' => 'all',
+                'start' => $start,
+                'end' => $end,
+                'label' => 'Semua Minggu',
+                'range_label' => 'Semua tahun',
+            ],
+        ]);
     }
 
     private function dashboardWeeksForMonth($tahun, $bulan)
@@ -426,7 +470,7 @@ return view('users.home', compact(
         return $weeks;
     }
 
-    private function resolveDashboardCustomDateRange(Request $request, $tahun)
+    private function resolveDashboardCustomDateRange(Request $request, $tahun, $dashboardYears)
     {
         $startInput = $request->input('tanggal_mulai');
         $endInput = $request->input('tanggal_selesai');
@@ -435,8 +479,11 @@ return view('users.home', compact(
             return null;
         }
 
-        $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay();
-        $yearEnd = Carbon::create((int) $tahun, 12, 31)->endOfDay();
+        $years = collect($dashboardYears)->filter()->values();
+        $startYear = (int) ($tahun === 'all' ? ($years->min() ?: Carbon::now()->year) : $tahun);
+        $endYear = (int) ($tahun === 'all' ? ($years->max() ?: Carbon::now()->year) : $tahun);
+        $yearStart = Carbon::create($startYear, 1, 1)->startOfDay();
+        $yearEnd = Carbon::create($endYear, 12, 31)->endOfDay();
 
         try {
             $start = $startInput ? Carbon::createFromFormat('Y-m-d', $startInput)->startOfDay() : $yearStart;
@@ -545,6 +592,10 @@ return view('users.home', compact(
             return $query;
         }
 
+        if ($tahun === 'all') {
+            return $this->applyDashboardDateRange($query, $column, $dateRange, $tahun);
+        }
+
         $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay()->toDateTimeString();
         $rangeStart = $dateRange['start']->copy()->toDateTimeString();
         $rangeEnd = $dateRange['end']->copy()->toDateTimeString();
@@ -567,8 +618,47 @@ return view('users.home', compact(
             return false;
         }
 
+        if ($tahun === 'all') {
+            return ($dateRange['number'] ?? null) === 'all';
+        }
+
         return $dateRange['start']->isSameDay(Carbon::create($tahun, 1, 1)->startOfDay())
             && $dateRange['end']->isSameDay(Carbon::create($tahun, 12, 31)->endOfDay());
+    }
+
+    private function availableDashboardYears($selectedYear = null)
+    {
+        $years = collect()
+            ->merge(DB::table('struktur_anggarans')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('penyedias')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('swakelolas')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('tender_selesai_data')->distinct()->pluck('tahun'))
+            ->merge(DB::table('ekatalog_v5_pakets')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('ekatalog_v6_pakets')->distinct()->pluck('tahun_anggaran'))
+            ->merge(DB::table('swakelola_realisasi')->distinct()->pluck('tahun_anggaran'));
+
+        if ($selectedYear && $selectedYear !== 'all') {
+            $years->push($selectedYear);
+        }
+
+        $years = $years
+            ->filter()
+            ->unique()
+            ->sortDesc()
+            ->values();
+
+        return $years->isEmpty() ? collect([Carbon::now()->year]) : $years;
+    }
+
+    private function applyDashboardYearFilter($query, $column, $dashboardYears)
+    {
+        $years = collect($dashboardYears)->filter()->values();
+
+        if ($years->count() === 1) {
+            return $query->where($column, $years->first());
+        }
+
+        return $query->whereIn($column, $years->all());
     }
 
     private function nonTenderRealizationAmountExpression($methodColumn, $tableAlias)
@@ -581,38 +671,39 @@ return view('users.home', compact(
         END";
     }
 
-    private function buildDashboardRecaps($tahun, $dateRange = null)
+    private function buildDashboardRecaps($tahun, $dateRange = null, $dashboardYears = null)
     {
-        $satkers = $this->dashboardSatkers($tahun);
-        $penyediaPlanning = $this->penyediaPlanningBySatker($tahun, null, $dateRange);
-        $tenderPlanning = $this->penyediaPlanningBySatker($tahun, 'tender', $dateRange);
-        $epurchasingPlanning = $this->penyediaPlanningBySatker($tahun, 'epurchasing', $dateRange);
-        $swakelolaPlanning = $this->swakelolaPlanningBySatker($tahun, $dateRange);
+        $dashboardYears = $dashboardYears ?: collect([$tahun]);
+        $satkers = $this->dashboardSatkers($dashboardYears);
+        $penyediaPlanning = $this->penyediaPlanningBySatker($dashboardYears, null, $dateRange);
+        $tenderPlanning = $this->penyediaPlanningBySatker($dashboardYears, 'tender', $dateRange);
+        $epurchasingPlanning = $this->penyediaPlanningBySatker($dashboardYears, 'epurchasing', $dateRange);
+        $swakelolaPlanning = $this->swakelolaPlanningBySatker($dashboardYears, $dateRange);
 
         $tenderQuery = DB::table('tender_selesai_nilai_data as nilai')
             ->join('tender_pengumuman_data as pengumuman', 'pengumuman.kd_tender', '=', 'nilai.kd_tender')
             ->select('pengumuman.nama_satker', DB::raw('COUNT(DISTINCT nilai.kd_tender) as paket'), DB::raw('COALESCE(SUM(ROUND(nilai.nilai_kontrak, 0)), 0) as nilai'))
-            ->where('nilai.tahun', $tahun)
             ->where('nilai.kd_klpd', 'D264')
             ->whereNotNull('pengumuman.nama_satker')
             ->groupBy('pengumuman.nama_satker');
+        $this->applyDashboardYearFilter($tenderQuery, 'nilai.tahun', $dashboardYears);
 
         $nonTenderAmount = $this->nonTenderRealizationAmountExpression('pengumuman.mtd_pemilihan', 'selesai');
         $nonTenderQuery = DB::table('non_tender_selesai as selesai')
             ->join('non_tender_pengumuman as pengumuman', 'pengumuman.kd_nontender', '=', 'selesai.kd_nontender')
             ->select('pengumuman.nama_satker', DB::raw('COUNT(DISTINCT selesai.kd_nontender) as paket'), DB::raw("COALESCE(SUM({$nonTenderAmount}), 0) as nilai"))
-            ->where('selesai.tahun_anggaran', $tahun)
             ->where('pengumuman.kd_klpd', 'D264')
             ->whereNotNull('pengumuman.nama_satker')
             ->groupBy('pengumuman.nama_satker');
+        $this->applyDashboardYearFilter($nonTenderQuery, 'selesai.tahun_anggaran', $dashboardYears);
 
 
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->whereIn('status_pkt', ['ON_PROCESS', 'COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM', 'ON_ADDENDUM'])
             ->whereNotNull('nama_satker')
             ->groupBy('nama_satker');
+        $this->applyDashboardYearFilter($ekatalogV6Query, 'tahun_anggaran', $dashboardYears);
 
         $this->applyDashboardDateRangeWithYearFloor($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
         $this->applyDashboardDateRangeWithYearFloor($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
@@ -622,9 +713,9 @@ return view('users.home', compact(
 
         $swakelolaRealisasiQuery = DB::table('swakelola_realisasi')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->whereNotNull('nama_satker')
             ->groupBy('nama_satker');
+        $this->applyDashboardYearFilter($swakelolaRealisasiQuery, 'tahun_anggaran', $dashboardYears);
 
         $this->applyDashboardDateRangeWithYearFloor($swakelolaRealisasiQuery, 'tgl_realisasi', $dateRange, $tahun);
 
@@ -671,8 +762,9 @@ return view('users.home', compact(
         ];
     }
 
-    private function buildMethodDetailRows($tahun, $dateRange = null)
+    private function buildMethodDetailRows($tahun, $dateRange = null, $dashboardYears = null)
     {
+        $dashboardYears = $dashboardYears ?: collect([$tahun]);
         $rows = collect($this->dashboardMethodDetailOrder())->mapWithKeys(function ($method) {
             return [$method => [
                 'metode' => $method,
@@ -686,10 +778,10 @@ return view('users.home', compact(
 
         $penyediaPlanningQuery = DB::table('penyedias')
             ->select('metode_pengadaan as metode', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264')
             ->where('nama_klpd', 'Provinsi Lampung')
             ->groupBy('metode_pengadaan');
+        $this->applyDashboardYearFilter($penyediaPlanningQuery, 'tahun_anggaran', $dashboardYears);
 
         $this->applyRupPlanningSnapshotCutoff($penyediaPlanningQuery, 'penyedias', 'PENYEDIA', $dateRange);
 
@@ -701,9 +793,9 @@ return view('users.home', compact(
 
         $swakelolaPlanning = DB::table('swakelolas')
             ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264')
             ->where('nama_klpd', 'Provinsi Lampung');
+        $this->applyDashboardYearFilter($swakelolaPlanning, 'tahun_anggaran', $dashboardYears);
 
         $this->applyRupPlanningSnapshotCutoff($swakelolaPlanning, 'swakelolas', 'SWAKELOLA', $dateRange);
 
@@ -714,28 +806,28 @@ return view('users.home', compact(
         $tenderQuery = DB::table('tender_selesai_nilai_data as nilai')
             ->join('tender_pengumuman_data as pengumuman', 'pengumuman.kd_tender', '=', 'nilai.kd_tender')
             ->select('pengumuman.mtd_pemilihan as metode', DB::raw('COUNT(DISTINCT nilai.kd_tender) as paket'), DB::raw('COALESCE(SUM(ROUND(nilai.nilai_kontrak, 0)), 0) as nilai'))
-            ->where('nilai.tahun', $tahun)
             ->where('nilai.kd_klpd', 'D264')
             ->groupBy('pengumuman.mtd_pemilihan');
+        $this->applyDashboardYearFilter($tenderQuery, 'nilai.tahun', $dashboardYears);
 
         $nonTenderAmount = $this->nonTenderRealizationAmountExpression('pengumuman.mtd_pemilihan', 'selesai');
         $nonTenderQuery = DB::table('non_tender_selesai as selesai')
             ->join('non_tender_pengumuman as pengumuman', 'pengumuman.kd_nontender', '=', 'selesai.kd_nontender')
             ->select('pengumuman.mtd_pemilihan as metode', DB::raw('COUNT(DISTINCT selesai.kd_nontender) as paket'), DB::raw("COALESCE(SUM({$nonTenderAmount}), 0) as nilai"))
-            ->where('selesai.tahun_anggaran', $tahun)
             ->where('pengumuman.kd_klpd', 'D264')
             ->groupBy('pengumuman.mtd_pemilihan');
+        $this->applyDashboardYearFilter($nonTenderQuery, 'selesai.tahun_anggaran', $dashboardYears);
 
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
             ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264')
             ->whereIn('status_pkt', ['ON_PROCESS', 'COMPLETED', 'PAYMENT_OUTSIDE_SYSTEM', 'ON_ADDENDUM']);
+        $this->applyDashboardYearFilter($ekatalogV6Query, 'tahun_anggaran', $dashboardYears);
 
         $swakelolaRealisasiQuery = DB::table('swakelola_realisasi')
             ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264');
+        $this->applyDashboardYearFilter($swakelolaRealisasiQuery, 'tahun_anggaran', $dashboardYears);
 
         $this->applyDashboardDateRangeWithYearFloor($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
         $this->applyDashboardDateRangeWithYearFloor($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
@@ -851,37 +943,37 @@ return view('users.home', compact(
         return $method;
     }
 
-    private function dashboardSatkers($tahun)
+    private function dashboardSatkers($dashboardYears)
     {
         $satkers = DB::table('struktur_anggarans')
             ->select('kd_satker', 'nama_satker')
-            ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264')
             ->whereNotNull('nama_satker')
-            ->orderBy('nama_satker')
-            ->get();
+            ->orderBy('nama_satker');
+        $this->applyDashboardYearFilter($satkers, 'tahun_anggaran', $dashboardYears);
+        $satkers = $satkers->get();
 
         if ($satkers->isEmpty()) {
             $satkers = DB::table('penyedias')
                 ->select('kd_satker', 'nama_satker')
-                ->where('tahun_anggaran', $tahun)
                 ->where('kd_klpd', 'D264')
                 ->whereNotNull('nama_satker')
                 ->distinct()
-                ->orderBy('nama_satker')
-                ->get();
+                ->orderBy('nama_satker');
+            $this->applyDashboardYearFilter($satkers, 'tahun_anggaran', $dashboardYears);
+            $satkers = $satkers->get();
         }
 
         return $satkers->unique('nama_satker')->values();
     }
 
-    private function penyediaPlanningBySatker($tahun, $metode = null, $dateRange = null)
+    private function penyediaPlanningBySatker($dashboardYears, $metode = null, $dateRange = null)
     {
         $query = DB::table('penyedias')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264')
             ->whereNotNull('nama_satker');
+        $this->applyDashboardYearFilter($query, 'tahun_anggaran', $dashboardYears);
 
         if ($metode === 'tender') {
             $query->where(function ($query) {
@@ -902,13 +994,13 @@ return view('users.home', compact(
         return $query->groupBy('nama_satker')->get()->keyBy('nama_satker');
     }
 
-    private function swakelolaPlanningBySatker($tahun, $dateRange = null)
+    private function swakelolaPlanningBySatker($dashboardYears, $dateRange = null)
     {
         $query = DB::table('swakelolas')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(pagu), 0) as nilai'))
-            ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', 'D264')
             ->whereNotNull('nama_satker');
+        $this->applyDashboardYearFilter($query, 'tahun_anggaran', $dashboardYears);
 
         $this->applyRupPlanningSnapshotCutoff($query, 'swakelolas', 'SWAKELOLA', $dateRange);
 

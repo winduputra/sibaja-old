@@ -44,6 +44,24 @@ class InaprocinaproApiClientTest extends TestCase
     }
 
     /** @test */
+    public function it_joins_base_url_and_endpoint_with_single_slash()
+    {
+        config(['api.inaproc.base_url' => 'https://data.inaproc.id/api/v1']);
+
+        $client = new InaprocinaproApiClient($this->rateLimiter);
+
+        Http::fake([
+            'data.inaproc.id/*' => Http::response([]),
+        ]);
+
+        $client->request('tender/non-tender-pengumuman');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://data.inaproc.id/api/v1/tender/non-tender-pengumuman';
+        });
+    }
+
+    /** @test */
     public function it_increments_rate_limit_counter_on_request()
     {
         Http::fake([

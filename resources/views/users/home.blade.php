@@ -188,6 +188,8 @@
   $methodDetailTotal = $methodDetailRows->first(function ($row) {
       return data_get($row, 'is_total');
   });
+
+  $tahunLabel = $tahun === 'all' ? 'semua tahun' : 'tahun ' . $tahun;
 @endphp
 
 <div class="dashboard-page py-4">
@@ -197,7 +199,7 @@
         <div>
           <div class="dashboard-kicker fw-semibold mb-2">Dashboard Pengadaan</div>
           <h2 class="fw-bold text-primary mb-2">Rekapitulasi Pengadaan Pemerintah Provinsi Lampung</h2>
-          <p class="text-muted mb-0">Ringkasan rencana RUP dan realisasi pengadaan per satuan kerja tahun {{ $tahun }}.</p>
+          <p class="text-muted mb-0">Ringkasan rencana RUP dan realisasi pengadaan per satuan kerja {{ $tahunLabel }}.</p>
         </div>
         <div class="d-flex flex-column align-items-lg-end gap-2">
           <form method="GET" action="{{ route('home') }}" class="dashboard-filter-form d-flex flex-column flex-sm-row flex-sm-wrap align-items-sm-end gap-2">
@@ -205,10 +207,11 @@
             <div>
               <label for="tahun" class="form-label small fw-bold mb-1">Tahun Anggaran</label>
               <select name="tahun" id="tahun" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="all" {{ $tahun === 'all' ? 'selected' : '' }}>Semua Tahun</option>
                 @forelse ($availableYears as $year)
                   <option value="{{ $year }}" {{ (string) $tahun === (string) $year ? 'selected' : '' }}>{{ $year }}</option>
                 @empty
-                  <option value="{{ $tahun }}">{{ $tahun }}</option>
+                  <option value="{{ $tahun }}">{{ $tahun === 'all' ? 'Semua Tahun' : $tahun }}</option>
                 @endforelse
               </select>
             </div>
@@ -341,7 +344,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">Data metode pemilihan tahun {{ $tahun }} belum tersedia.</td>
+                <td colspan="5" class="text-center text-muted py-4">Data metode pemilihan {{ $tahunLabel }} belum tersedia.</td>
               </tr>
             @endforelse
           </tbody>
@@ -408,7 +411,7 @@
                 </tr>
               @empty
                 <tr>
-                  <td colspan="7" class="text-center text-muted py-4">Data satuan kerja tahun {{ $tahun }} belum tersedia.</td>
+                  <td colspan="7" class="text-center text-muted py-4">Data satuan kerja {{ $tahunLabel }} belum tersedia.</td>
                 </tr>
               @endforelse
             </tbody>

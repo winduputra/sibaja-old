@@ -37,7 +37,7 @@ class InaprocinaproApiClient
             $this->rateLimiter->waitForCapacity();
         }
 
-        $url = $this->baseUrl . $endpoint;
+        $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
         $headers = [
             'Authorization' => 'Bearer ' . $this->bearerToken,

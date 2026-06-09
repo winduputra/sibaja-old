@@ -38,16 +38,40 @@ class EkatalogUpdate extends Command
 
     protected function fetchAndStore($url, $model, $year)
     {
+        $modelName = class_basename($model);
+
+        $this->line("Mengambil data {$modelName} tahun {$year} dari API...");
         $response = Http::get($url);
 
         if ($response->successful()) {
             $data = $response->json();
+            $total = count($data);
+            $processed = 0;
+
+            $this->line("Response diterima untuk {$modelName} tahun {$year}: {$total} paket. Mulai simpan data...");
+
+            $progressBar = $this->output->createProgressBar($total);
+
+            $progressBar->setRedrawFrequency(1000);
+            $progressBar->start();
+
             foreach ($data as $item) {
                 $item['tahun_anggaran'] = $item['tahun_anggaran'] ?? $year;
                 $model::updateOrCreate($model::uniqueKeys($item), $item);
 
+                $processed++;
+                $progressBar->advance();
+
+                if ($processed % 1000 === 0) {
+                    $progressBar->clear();
+                    $this->line("  Progress {$modelName} {$year}: {$processed}/{$total} paket diproses");
+                    $progressBar->display();
+                }
             }
-            $this->info("✔ Data disimpan untuk model: {$model}");
+
+            $progressBar->finish();
+            $this->newLine();
+            $this->info("✔ Data disimpan untuk {$modelName} tahun {$year}: {$total} paket");
         } else {
             $this->error("✖ Gagal mengambil data dari {$url}");
         }
