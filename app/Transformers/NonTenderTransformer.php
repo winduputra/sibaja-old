@@ -97,6 +97,33 @@ class NonTenderTransformer
     }
 
     /**
+     * Transform pencatatan non-tender planning data
+     */
+    public static function pencatatan(array $item, $tahun = null): array
+    {
+        return [
+            'tahun_anggaran' => $tahun ?? $item['tahun'] ?? $item['tahun_anggaran'] ?? date('Y'),
+            'kd_klpd' => $item['kd_klpd'] ?? 'D264',
+            'nama_klpd' => $item['nama_klpd'] ?? null,
+            'jenis_klpd' => $item['jenis_klpd'] ?? null,
+            'kd_satker' => $item['kd_satker'] ?? null,
+            'kd_satker_str' => $item['kd_satker_str'] ?? null,
+            'nama_satker' => $item['nama_satker'] ?? null,
+            'kd_lpse' => $item['kd_lpse'] ?? null,
+            'kd_nontender_pct' => $item['kd_nontender_pct'] ?? null,
+            'kd_pkt_dce' => $item['kd_pkt_dce'] ?? null,
+            'kd_rup' => self::parseKdRup($item['kd_rup'] ?? null),
+            'nama_paket' => $item['nama_paket'] ?? null,
+            'pagu' => self::parseNumber($item['pagu'] ?? 0),
+            'total_realisasi' => self::parseNumber($item['total_realisasi'] ?? 0),
+            'nilai_pdn_pct' => self::parseNumber($item['nilai_pdn_pct'] ?? 0),
+            'nilai_umk_pct' => self::parseNumber($item['nilai_umk_pct'] ?? 0),
+            'sumber_dana' => $item['sumber_dana'] ?? null,
+            'uraian_pekerjaan' => $item['uraian_pekerjaan'] ?? null,
+        ];
+    }
+
+    /**
      * Transform pencatatan non-tender realisasi (realization recording) data
      */
     public static function pencatatanRealisasi(array $item, $tahun = null): array
@@ -104,16 +131,29 @@ class NonTenderTransformer
         return [
             'kd_nontender_pct' => $item['kd_nontender_pct'] ?? null,
             'tahun_anggaran' => $tahun ?? $item['tahun'] ?? date('Y'),
+            'kd_klpd' => $item['kd_klpd'] ?? 'D264',
+            'nama_klpd' => $item['nama_klpd'] ?? null,
+            'jenis_klpd' => $item['jenis_klpd'] ?? null,
             'kd_paket_dce' => $item['kd_paket_dce'] ?? null,
             'kd_rup_paket' => $item['kd_rup_paket'] ?? null,
             'kd_satker' => $item['kd_satker'] ?? null,
+            'kd_satker_str' => $item['kd_satker_str'] ?? null,
             'nama_satker' => $item['nama_satker'] ?? null,
+            'kd_lpse' => $item['kd_lpse'] ?? null,
+            'nama_lpse' => $item['nama_lpse'] ?? null,
             'nama_paket' => $item['nama_paket'] ?? null,
             'jenis_realisasi' => $item['jenis_realisasi'] ?? null,
+            'no_realisasi' => $item['no_realisasi'] ?? null,
+            'tgl_realisasi' => self::parseDateTime($item['tgl_realisasi'] ?? null),
             'pagu' => self::parseNumber($item['pagu'] ?? 0),
             'nilai_realisasi' => self::parseNumber($item['nilai_realisasi'] ?? 0),
             'dok_realisasi' => $item['dok_realisasi'] ?? null,
             'ket_realisasi' => $item['ket_realisasi'] ?? null,
+            'nama_penyedia' => $item['nama_penyedia'] ?? null,
+            'npwp_penyedia' => $item['npwp_penyedia'] ?? null,
+            'nip_ppk' => $item['nip_ppk'] ?? null,
+            'nama_ppk' => $item['nama_ppk'] ?? null,
+            '_event_date' => self::parseDateTime($item['_event_date'] ?? null),
             'sync_source' => 'inaproc_v1',
             'last_synced_at' => now(),
         ];
@@ -126,6 +166,13 @@ class NonTenderTransformer
     {
         if ($value === null || $value === '') {
             return 0;
+        }
+
+        if (\is_string($value) && \preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $value)) {
+            $value = \str_replace('.', '', $value);
+            $value = \str_replace(',', '.', $value);
+
+            return (float) $value;
         }
 
         if (\is_numeric($value)) {

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\NonTenderPengumuman;
 use App\Models\NonTenderSelesai;
 use App\Models\NonTenderKontrak;
+use App\Models\PencatatanNonTender;
 use App\Models\RealisasiNonTender;
 use App\Services\InaprocinaproApiClient;
 use App\Transformers\NonTenderTransformer;
@@ -74,7 +75,11 @@ class NonTenderSyncCommand extends Command
                     $this->syncEkontrakKontrak();
                 }
 
-                if (\in_array($type, ['all', 'realisasi'])) {
+                if (\in_array($type, ['all', 'pencatatan', 'perencanaan', 'planning'])) {
+                    $this->syncPencatatanPerencanaan();
+                }
+
+                if (\in_array($type, ['all', 'pencatatan', 'realisasi', 'tercatat'])) {
                     $this->syncPencatatanRealisasi();
                 }
             }
@@ -268,11 +273,66 @@ class NonTenderSyncCommand extends Command
         $this->synced += $localSynced;
     }
 
+    protected function syncPencatatanPerencanaan(): void
+    {
+        $this->line("\n> Syncing Pencatatan Non-Tender Perencanaan...");
+        $apiClient = new InaprocinaproApiClient();
+        $endpoint = config('api.inaproc.endpoints.pencatatan_non_tender.path', 'tender/pencatatan-non-tender');
+
+        $itemCount = 0;
+        $localSynced = 0;
+
+        $apiClient->paginate($endpoint,
+            ['kode_klpd' => 'D264', 'tahun' => $this->tahun, 'limit' => 1000],
+            function ($batch) use (&$itemCount, &$localSynced, &$tahun) {
+                $tahun = $this->tahun;
+                foreach ($batch as $item) {
+                    if ($this->limit > 0 && $itemCount >= $this->limit) {
+                        return;
+                    }
+
+                    try {
+                        $required = ['kd_nontender_pct', 'kd_satker', 'nama_paket', 'nama_satker', 'pagu'];
+
+                        foreach ($required as $field) {
+                            if (!\array_key_exists($field, $item) || $item[$field] === null) {
+                                throw new \Exception("Missing required field: $field");
+                            }
+                        }
+
+                        $transformed = NonTenderTransformer::pencatatan($item, $tahun);
+
+                        if (!$this->dryRun) {
+                            PencatatanNonTender::updateOrCreate(
+                                ['kd_nontender_pct' => $transformed['kd_nontender_pct']],
+                                $transformed
+                            );
+                        }
+
+                        $localSynced++;
+                        $itemCount++;
+
+                        if ($localSynced % 50 === 0) {
+                            $this->info("  Processed: $localSynced perencanaan");
+                        }
+
+                    } catch (\Exception $e) {
+                        $this->error("  Error: " . $e->getMessage());
+                        $this->errors++;
+                    }
+                }
+            }
+        );
+
+        $this->info("  ✓ Pencatatan Non-Tender Perencanaan synced: $localSynced");
+        $this->synced += $localSynced;
+    }
+
     protected function syncPencatatanRealisasi(): void
     {
         $this->line("\n> Syncing Pencatatan Non-Tender Realisasi...");
         $apiClient = new InaprocinaproApiClient();
-        $endpoint = 'tender/pencatatan-non-tender-realisasi';
+        $endpoint = config('api.inaproc.endpoints.pencatatan_non_tender_realisasi.path', 'tender/pencatatan-non-tender-realisasi');
 
         $itemCount = 0;
         $localSynced = 0;
@@ -300,8 +360,23 @@ class NonTenderSyncCommand extends Command
                         $transformed = NonTenderTransformer::pencatatanRealisasi($item, $tahun);
 
                         if (!$this->dryRun) {
+                            $keys = [
+                                'tahun_anggaran' => $transformed['tahun_anggaran'],
+                                'kd_nontender_pct' => $transformed['kd_nontender_pct'],
+                            ];
+
+                            if (!empty($transformed['no_realisasi'])) {
+                                $keys['no_realisasi'] = $transformed['no_realisasi'];
+                            } else {
+                                foreach (['tgl_realisasi', 'jenis_realisasi', 'nilai_realisasi', 'dok_realisasi', 'ket_realisasi'] as $field) {
+                                    if ($transformed[$field] !== null && $transformed[$field] !== '') {
+                                        $keys[$field] = $transformed[$field];
+                                    }
+                                }
+                            }
+
                             RealisasiNonTender::updateOrCreate(
-                                ['kd_nontender_pct' => $transformed['kd_nontender_pct']],
+                                $keys,
                                 $transformed
                             );
                         }

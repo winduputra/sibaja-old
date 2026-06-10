@@ -17,6 +17,8 @@ use App\Http\Controllers\StrukturAnggaranController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\PdnUmkTrackerController;
+use App\Http\Controllers\PencatatanNonTenderRealisasiController;
+use App\Http\Controllers\PencatatanSwakelolaRealisasiController;
 use App\Http\Controllers\RupMonitoringController;
 
 
@@ -42,13 +44,13 @@ Route::view('/realisasi/swakelola', 'placeholders.not-created', [
     'title' => 'Realisasi Swakelola',
 ])->middleware('auth')->name('realisasi.swakelola');
 
-Route::view('/realisasi/pencatatan/non-tender', 'placeholders.not-created', [
-    'title' => 'Pencatatan Non Tender',
-])->middleware('auth')->name('realisasi.pencatatan.non-tender');
+Route::get('/realisasi/pencatatan/non-tender', [PencatatanNonTenderRealisasiController::class, 'index'])
+    ->middleware('auth')
+    ->name('realisasi.pencatatan.non-tender');
 
-Route::view('/realisasi/pencatatan/swakelola', 'placeholders.not-created', [
-    'title' => 'Pencatatan Swakelola',
-])->middleware('auth')->name('realisasi.pencatatan.swakelola');
+Route::get('/realisasi/pencatatan/swakelola', [PencatatanSwakelolaRealisasiController::class, 'index'])
+    ->middleware('auth')
+    ->name('realisasi.pencatatan.swakelola');
 
 Route::view('/monitoring/progress-pengadaan/penilaian-penyedia', 'monitoring.penilaian-penyedia')
     ->middleware('auth')

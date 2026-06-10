@@ -193,6 +193,20 @@ return [
                 'unique_key' => ['kd_nontender'],
             ],
 
+            'pencatatan_non_tender' => [
+                'path' => 'tender/pencatatan-non-tender',
+                'method' => 'GET',
+                'params' => ['kode_klpd' => 'D264', 'tahun' => '2026', 'limit' => 1000],
+                'supported_years' => [2025, 2026],
+                'filters' => [],
+                'required_fields' => [
+                    'kd_nontender_pct', 'kd_satker', 'nama_paket', 'nama_satker', 'pagu'
+                ],
+                'model' => 'App\Models\PencatatanNonTender',
+                'table' => 'non_tender_pencatatan',
+                'unique_key' => ['kd_nontender_pct'],
+            ],
+
             'pencatatan_non_tender_realisasi' => [
                 'path' => 'tender/pencatatan-non-tender-realisasi',
                 'method' => 'GET',
@@ -207,6 +221,35 @@ return [
                 'model' => 'App\Models\RealisasiNonTender',
                 'table' => 'non_tender_realisasi',
                 'unique_key' => ['kd_nontender_pct'],
+            ],
+
+            'pencatatan_swakelola' => [
+                'path' => 'tender/pencatatan-swakelola',
+                'method' => 'GET',
+                'params' => ['kode_klpd' => 'D264', 'tahun' => '2026', 'limit' => 1000],
+                'supported_years' => [2025, 2026],
+                'filters' => [],
+                'required_fields' => [
+                    'kd_swakelola_pct', 'kd_satker', 'nama_paket', 'nama_satker', 'pagu'
+                ],
+                'model' => 'App\Models\PencatatanSwakelola',
+                'table' => 'swakelola_pencatatan',
+                'unique_key' => ['kd_swakelola_pct'],
+            ],
+
+            'pencatatan_swakelola_realisasi' => [
+                'path' => 'tender/pencatatan-swakelola-realisasi',
+                'method' => 'GET',
+                'params' => ['kode_klpd' => 'D264', 'tahun' => '2026', 'limit' => 1000],
+                'supported_years' => [2025, 2026],
+                'filters' => [],
+                'required_fields' => [
+                    'jenis_realisasi', 'kd_swakelola_pct', 'kd_satker',
+                    'nama_paket', 'nama_satker', 'pagu'
+                ],
+                'model' => 'App\Models\SwakelolaRealisasi',
+                'table' => 'swakelola_realisasi',
+                'unique_key' => ['kd_swakelola_pct'],
             ],
 
             // E-KATALOG

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 class UpdateAllCommand extends Command
 {
     protected $signature = 'update:all {--tahun=2026} {--all-years} {--dry-run} {--limit=0} {--only=} {--skip=}';
-    protected $description = 'Sync ALL data from INAPROC API (RUP, Tender, Non-Tender, E-Katalog)';
+    protected $description = 'Sync ALL data from INAPROC API (RUP, Tender, Non-Tender, Pencatatan Swakelola, E-Katalog)';
 
     protected $totalSynced = 0;
     protected $totalErrors = 0;
@@ -59,6 +59,11 @@ class UpdateAllCommand extends Command
                 'non-tender' => [
                     'name' => 'Non-Tender Data',
                     'command' => 'inaproc:sync-non-tender',
+                    'options' => ['type' => 'all'],
+                ],
+                'pencatatan-swakelola' => [
+                    'name' => 'Pencatatan Swakelola Data',
+                    'command' => 'inaproc:sync-pencatatan-swakelola',
                     'options' => ['type' => 'all'],
                 ],
                 'ekatalog-v5' => [
@@ -195,7 +200,7 @@ class UpdateAllCommand extends Command
         $this->info("╚════════════════════════════════════════════════╝");
         $this->line("");
         $this->line("📊 Summary:");
-        $this->line("  - Total Modules: 5");
+        $this->line("  - Total Modules: 6");
         $this->line("  - With Errors: {$this->totalErrors}");
         $this->line("  - Duration: {$duration}s");
         $this->line("");

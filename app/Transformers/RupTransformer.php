@@ -182,6 +182,11 @@ class RupTransformer
 
         try {
             $dt = new \DateTime($value);
+
+            if ((int) $dt->format('Y') < 1000) {
+                return null;
+            }
+
             return $dt->format('Y-m-d H:i:s');
         } catch (\Exception $e) {
             return null;
