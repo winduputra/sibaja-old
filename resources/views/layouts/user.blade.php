@@ -281,19 +281,11 @@
                 <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.rekap.realisasi') ? 'active' : '' }}" href="{{ route('monitoring.rekap.realisasi') }}">Selesai</a></li>
               </ul>
             </li>
-            <li class="dropdown-submenu position-relative">
-              <a class="dropdown-item d-flex justify-content-between align-items-center px-3 py-2" href="#" aria-expanded="false">
-                <span class="d-flex align-items-center">
-                  Penilaian Penyedia
-                  <i class="bi bi-caret-down-fill ms-1 transition"></i>
-                </span>
-              </a>
-              <ul class="collapse list-unstyled bg-white">
-                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.progress-pengadaan.penilaian-penyedia.tender') ? 'active' : '' }}" href="{{ route('monitoring.progress-pengadaan.penilaian-penyedia.tender') }}">Tender</a></li>
-                <li><a class="dropdown-item px-3 py-2 {{ request()->routeIs('monitoring.progress-pengadaan.penilaian-penyedia.non-tender') ? 'active' : '' }}" href="{{ route('monitoring.progress-pengadaan.penilaian-penyedia.non-tender') }}">Non Tender</a></li>
-              </ul>
-            </li>
+            <li><a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('monitoring.progress-pengadaan.penilaian-penyedia') ? 'active' : '' }}" href="{{ route('monitoring.progress-pengadaan.penilaian-penyedia') }}">Penilaian Penyedia</a></li>
           </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ request()->routeIs('rekapitulasi-nasional') ? 'active' : '' }}" href="{{ route('rekapitulasi-nasional') }}">Rekapitulasi Nasional</a>
         </li>
   </ul>
 

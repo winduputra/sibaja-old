@@ -50,13 +50,13 @@ Route::view('/realisasi/pencatatan/swakelola', 'placeholders.not-created', [
     'title' => 'Pencatatan Swakelola',
 ])->middleware('auth')->name('realisasi.pencatatan.swakelola');
 
-Route::view('/monitoring/progress-pengadaan/penilaian-penyedia/tender', 'placeholders.not-created', [
-    'title' => 'Penilaian Penyedia Tender',
-])->middleware('auth')->name('monitoring.progress-pengadaan.penilaian-penyedia.tender');
+Route::view('/monitoring/progress-pengadaan/penilaian-penyedia', 'monitoring.penilaian-penyedia')
+    ->middleware('auth')
+    ->name('monitoring.progress-pengadaan.penilaian-penyedia');
 
-Route::view('/monitoring/progress-pengadaan/penilaian-penyedia/non-tender', 'placeholders.not-created', [
-    'title' => 'Penilaian Penyedia Non Tender',
-])->middleware('auth')->name('monitoring.progress-pengadaan.penilaian-penyedia.non-tender');
+Route::view('/rekapitulasi-nasional', 'placeholders.not-created', [
+    'title' => 'Rekapitulasi Nasional',
+])->middleware('auth')->name('rekapitulasi-nasional');
 
 Route::group([
     'prefix' => 'non-tender',
