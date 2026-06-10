@@ -671,6 +671,22 @@ return view('users.home', compact(
         END";
     }
 
+    private function pencatatanNonTenderRealisasiQuery()
+    {
+        return DB::table('non_tender_realisasi')
+            ->select('nama_satker', DB::raw('COUNT(DISTINCT kd_nontender_pct) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
+            ->where('kd_klpd', 'D264')
+            ->whereNotNull('nama_satker')
+            ->groupBy('nama_satker');
+    }
+
+    private function pencatatanNonTenderRealisasiMethodQuery()
+    {
+        return DB::table('non_tender_realisasi')
+            ->select(DB::raw("'Pengadaan Langsung' as metode"), DB::raw('COUNT(DISTINCT kd_nontender_pct) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
+            ->where('kd_klpd', 'D264');
+    }
+
     private function buildDashboardRecaps($tahun, $dateRange = null, $dashboardYears = null)
     {
         $dashboardYears = $dashboardYears ?: collect([$tahun]);
@@ -697,6 +713,9 @@ return view('users.home', compact(
             ->groupBy('pengumuman.nama_satker');
         $this->applyDashboardYearFilter($nonTenderQuery, 'selesai.tahun_anggaran', $dashboardYears);
 
+        $pencatatanNonTenderQuery = $this->pencatatanNonTenderRealisasiQuery();
+        $this->applyDashboardYearFilter($pencatatanNonTenderQuery, 'tahun_anggaran', $dashboardYears);
+
 
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
             ->select('nama_satker', DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
@@ -707,6 +726,7 @@ return view('users.home', compact(
 
         $this->applyDashboardDateRangeWithYearFloor($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
         $this->applyDashboardDateRangeWithYearFloor($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($pencatatanNonTenderQuery, 'tgl_realisasi', $dateRange, $tahun);
         if (!$this->isFullBudgetYearRange($dateRange, $tahun)) {
             $this->applyDashboardDateRangeWithYearFloor($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
         }
@@ -725,6 +745,7 @@ return view('users.home', compact(
 
         $nonTenderRealisasi = $this->combineDashboardAggregates([
             $nonTenderQuery->get(),
+            $pencatatanNonTenderQuery->get(),
         ]);
 
         $epurchasingRealisasi = $this->combineDashboardAggregates([
@@ -818,6 +839,9 @@ return view('users.home', compact(
             ->groupBy('pengumuman.mtd_pemilihan');
         $this->applyDashboardYearFilter($nonTenderQuery, 'selesai.tahun_anggaran', $dashboardYears);
 
+        $pencatatanNonTenderQuery = $this->pencatatanNonTenderRealisasiMethodQuery();
+        $this->applyDashboardYearFilter($pencatatanNonTenderQuery, 'tahun_anggaran', $dashboardYears);
+
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
             ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
             ->where('kd_klpd', 'D264')
@@ -831,6 +855,7 @@ return view('users.home', compact(
 
         $this->applyDashboardDateRangeWithYearFloor($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
         $this->applyDashboardDateRangeWithYearFloor($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($pencatatanNonTenderQuery, 'tgl_realisasi', $dateRange, $tahun);
         if (!$this->isFullBudgetYearRange($dateRange, $tahun)) {
             $this->applyDashboardDateRangeWithYearFloor($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
         }
@@ -843,6 +868,9 @@ return view('users.home', compact(
         foreach ($nonTenderQuery->get() as $row) {
             $this->addMethodDetailBucket($rows, $row->metode, 'realization', $row->paket, $row->nilai);
         }
+
+        $pencatatanNonTenderRealisasi = $pencatatanNonTenderQuery->first();
+        $this->addMethodDetailBucket($rows, 'Pengadaan Langsung', 'realization', $pencatatanNonTenderRealisasi->paket ?? 0, $pencatatanNonTenderRealisasi->nilai ?? 0);
 
         $ekatalogV6Realisasi = $ekatalogV6Query->first();
         $this->addMethodDetailBucket($rows, 'E-Purchasing', 'realization', $ekatalogV6Realisasi->paket ?? 0, $ekatalogV6Realisasi->nilai ?? 0);
