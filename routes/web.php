@@ -11,6 +11,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\EkatalogReportController;
 use App\Http\Controllers\TokoDaringReportController;
+use App\Http\Controllers\RekapitulasiNasionalController;
 use App\Services\NonTenderService;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StrukturAnggaranController;
@@ -56,9 +57,11 @@ Route::view('/monitoring/progress-pengadaan/penilaian-penyedia', 'monitoring.pen
     ->middleware('auth')
     ->name('monitoring.progress-pengadaan.penilaian-penyedia');
 
-Route::view('/rekapitulasi-nasional', 'placeholders.not-created', [
-    'title' => 'Rekapitulasi Nasional',
-])->middleware('auth')->name('rekapitulasi-nasional');
+Route::middleware('auth')->group(function () {
+    Route::get('/rekapitulasi-nasional', [RekapitulasiNasionalController::class, 'index'])->name('rekapitulasi-nasional');
+    Route::get('/rekapitulasi-nasional/export-pdf', [RekapitulasiNasionalController::class, 'exportPdf'])->name('rekapitulasi-nasional.export-pdf');
+    Route::get('/rekapitulasi-nasional/export-excel', [RekapitulasiNasionalController::class, 'exportExcel'])->name('rekapitulasi-nasional.export-excel');
+});
 
 Route::group([
     'prefix' => 'non-tender',

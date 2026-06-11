@@ -87,6 +87,16 @@ class Kernel extends ConsoleKernel
             ->onSuccess(function () {
                 \Log::info('INAPROC: E-Katalog V6 synced successfully');
             });
+
+        $schedule->command('inaproc:sync-rekap-nasional')
+            ->dailyAt('03:30')
+            ->withoutOverlapping()
+            ->onFailure(function () {
+                \Log::error('INAPROC: Rekapitulasi Nasional sync failed');
+            })
+            ->onSuccess(function () {
+                \Log::info('INAPROC: Rekapitulasi Nasional synced successfully');
+            });
     }
 
     /**
