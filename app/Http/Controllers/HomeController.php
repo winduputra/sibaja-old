@@ -682,9 +682,13 @@ return view('users.home', compact(
 
     private function pencatatanNonTenderRealisasiMethodQuery()
     {
-        return DB::table('non_tender_realisasi')
-            ->select(DB::raw("'Pengadaan Langsung' as metode"), DB::raw('COUNT(DISTINCT kd_nontender_pct) as paket'), DB::raw('COALESCE(SUM(nilai_realisasi), 0) as nilai'))
-            ->where('kd_klpd', 'D264');
+        $methodExpression = "COALESCE(realisasi.mtd_pemilihan, pencatatan.mtd_pemilihan, 'Pengadaan Langsung')";
+
+        return DB::table('non_tender_realisasi as realisasi')
+            ->leftJoin('non_tender_pencatatan as pencatatan', 'pencatatan.kd_nontender_pct', '=', 'realisasi.kd_nontender_pct')
+            ->select(DB::raw("{$methodExpression} as metode"), DB::raw('COUNT(DISTINCT realisasi.kd_nontender_pct) as paket'), DB::raw('COALESCE(SUM(realisasi.nilai_realisasi), 0) as nilai'))
+            ->where('realisasi.kd_klpd', 'D264')
+            ->groupBy(DB::raw($methodExpression));
     }
 
     private function buildDashboardRecaps($tahun, $dateRange = null, $dashboardYears = null)
@@ -840,7 +844,7 @@ return view('users.home', compact(
         $this->applyDashboardYearFilter($nonTenderQuery, 'selesai.tahun_anggaran', $dashboardYears);
 
         $pencatatanNonTenderQuery = $this->pencatatanNonTenderRealisasiMethodQuery();
-        $this->applyDashboardYearFilter($pencatatanNonTenderQuery, 'tahun_anggaran', $dashboardYears);
+        $this->applyDashboardYearFilter($pencatatanNonTenderQuery, 'realisasi.tahun_anggaran', $dashboardYears);
 
         $ekatalogV6Query = DB::table('ekatalog_v6_pakets')
             ->select(DB::raw('COUNT(*) as paket'), DB::raw('COALESCE(SUM(total_harga), 0) as nilai'))
@@ -855,7 +859,7 @@ return view('users.home', compact(
 
         $this->applyDashboardDateRangeWithYearFloor($tenderQuery, 'nilai.tgl_penetapan_pemenang', $dateRange, $tahun);
         $this->applyDashboardDateRangeWithYearFloor($nonTenderQuery, 'selesai.tgl_selesai_nontender', $dateRange, $tahun);
-        $this->applyDashboardDateRangeWithYearFloor($pencatatanNonTenderQuery, 'tgl_realisasi', $dateRange, $tahun);
+        $this->applyDashboardDateRangeWithYearFloor($pencatatanNonTenderQuery, 'realisasi.tgl_realisasi', $dateRange, $tahun);
         if (!$this->isFullBudgetYearRange($dateRange, $tahun)) {
             $this->applyDashboardDateRangeWithYearFloor($ekatalogV6Query, 'tgl_order', $dateRange, $tahun);
         }
@@ -869,8 +873,9 @@ return view('users.home', compact(
             $this->addMethodDetailBucket($rows, $row->metode, 'realization', $row->paket, $row->nilai);
         }
 
-        $pencatatanNonTenderRealisasi = $pencatatanNonTenderQuery->first();
-        $this->addMethodDetailBucket($rows, 'Pengadaan Langsung', 'realization', $pencatatanNonTenderRealisasi->paket ?? 0, $pencatatanNonTenderRealisasi->nilai ?? 0);
+        foreach ($pencatatanNonTenderQuery->get() as $row) {
+            $this->addMethodDetailBucket($rows, $row->metode, 'realization', $row->paket, $row->nilai);
+        }
 
         $ekatalogV6Realisasi = $ekatalogV6Query->first();
         $this->addMethodDetailBucket($rows, 'E-Purchasing', 'realization', $ekatalogV6Realisasi->paket ?? 0, $ekatalogV6Realisasi->nilai ?? 0);
@@ -896,7 +901,7 @@ return view('users.home', compact(
             'E-Purchasing',
             'Kontes',
             'Pengadaan Langsung',
-            'Pengecualian',
+            'Dikecualikan',
             'Penunjukan Langsung',
             'Seleksi',
             'Tender',
@@ -953,7 +958,7 @@ return view('users.home', compact(
         }
 
         if (strpos($normalized, 'pengecualian') !== false || strpos($normalized, 'dikecualikan') !== false || strpos($normalized, 'kecuali') !== false) {
-            return 'Pengecualian';
+            return 'Dikecualikan';
         }
 
         if (strpos($normalized, 'penunjukan langsung') !== false) {
