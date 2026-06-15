@@ -50,7 +50,7 @@ class InaprocinaproApiClient
 
             $response = Http::withHeaders($headers)
                 ->timeout($this->timeout)
-                ->get($url, $params);
+                ->send('GET', $url, ['json' => $this->normalizeParams($params)]);
 
             // Increment rate limit counter
             $this->rateLimiter->incrementRequestCount();
@@ -158,6 +158,20 @@ class InaprocinaproApiClient
         ]);
 
         return $totalItems;
+    }
+
+    /**
+     * Normalize values for INAPROC JSON body validation.
+     */
+    protected function normalizeParams(array $params): array
+    {
+        foreach (['tahun', 'limit'] as $key) {
+            if (isset($params[$key]) && is_numeric($params[$key])) {
+                $params[$key] = (int) $params[$key];
+            }
+        }
+
+        return $params;
     }
 
     /**
