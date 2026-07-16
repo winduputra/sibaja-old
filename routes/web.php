@@ -20,6 +20,7 @@ use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\PdnUmkTrackerController;
 use App\Http\Controllers\PencatatanNonTenderRealisasiController;
 use App\Http\Controllers\PencatatanSwakelolaRealisasiController;
+use App\Http\Controllers\PengadaanLangsungController;
 use App\Http\Controllers\RupMonitoringController;
 
 
@@ -61,6 +62,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/rekapitulasi-nasional', [RekapitulasiNasionalController::class, 'index'])->name('rekapitulasi-nasional');
     Route::get('/rekapitulasi-nasional/export-pdf', [RekapitulasiNasionalController::class, 'exportPdf'])->name('rekapitulasi-nasional.export-pdf');
     Route::get('/rekapitulasi-nasional/export-excel', [RekapitulasiNasionalController::class, 'exportExcel'])->name('rekapitulasi-nasional.export-excel');
+    Route::get('/pengadaan-langsung', [PengadaanLangsungController::class, 'index'])->name('pengadaan-langsung');
+    Route::get('/pengadaan-langsung/export-excel', [PengadaanLangsungController::class, 'exportExcel'])->name('pengadaan-langsung.export-excel');
 });
 
 Route::group([

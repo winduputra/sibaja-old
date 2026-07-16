@@ -234,6 +234,9 @@
         <li class="nav-item">
           <a class="nav-link {{ request()->routeIs('rekapitulasi-nasional') ? 'active' : '' }}" href="{{ route('rekapitulasi-nasional') }}">Rekapitulasi Nasional</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link {{ request()->routeIs('pengadaan-langsung') ? 'active' : '' }}" href="{{ route('pengadaan-langsung') }}">Pengadaan Langsung</a>
+        </li>
   </ul>
 
   <!-- Page Specific Filters -->
