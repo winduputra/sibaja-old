@@ -120,9 +120,9 @@
       <p>KEPALA BIRO PENGADAAN</p>
       <p>BARANG DAN JASA,</p>
       <br><br><br><br><br>
-      <p>PUADI JAILANI,SH.,MH</p>
-      <p>PEMBINA UTAMA MUDA</p>
-      <p>NIP. 19650905 199103 1 004</p>
+      <p>Ir. S. HENDRIYANTO, S.T., M.T.</p>
+      <p>Pembina Tk. I/IV.b</p>
+      <p>NIP. 19730915 199902 1 001</p>
     </td>
   </tr>
 </table>
