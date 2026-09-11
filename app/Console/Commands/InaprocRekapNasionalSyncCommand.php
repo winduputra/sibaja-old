@@ -2,14 +2,16 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\DestructiveApiImportRefresh;
 use App\Models\RekapitulasiNasional;
 use App\Services\InaprocRekapNasionalBrowser;
 use App\Services\InaprocRekapNasionalTextParser;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 
 class InaprocRekapNasionalSyncCommand extends Command
 {
+    use DestructiveApiImportRefresh;
+
     protected $signature = 'inaproc:sync-rekap-nasional {--province=} {--dry-run} {--limit=0} {--timeout=}';
     protected $description = 'Scrape Rekapitulasi Nasional from rendered Inaproc Streamlit pages using Playwright';
 
@@ -26,10 +28,14 @@ class InaprocRekapNasionalSyncCommand extends Command
             return 1;
         }
 
-        foreach ($provinces as $index => $province) {
-            $this->line('Scraping ' . $province['name'] . ' (' . $province['code'] . ')...');
+        try {
+            if (!$dryRun) {
+                $this->truncateTargets([RekapitulasiNasional::class]);
+            }
 
-            try {
+            foreach ($provinces as $index => $province) {
+                $this->line('Scraping ' . $province['name'] . ' (' . $province['code'] . ')...');
+
                 $innerText = $browser->scrape($province['url'], $timeout);
                 $parsed = $parser->parse($innerText);
                 $payload = array_merge($parsed, [
@@ -48,27 +54,22 @@ class InaprocRekapNasionalSyncCommand extends Command
 
                 $synced++;
                 $this->info('  OK: ' . $this->formatMoney($payload['total_realisasi']) . ' / ' . $this->formatMoney($payload['total_perencanaan']));
-            } catch (\Throwable $exception) {
-                $errors++;
-                $this->error('  Gagal: ' . $exception->getMessage());
-                Log::error('Rekapitulasi Nasional scrape failed', [
-                    'province' => $province,
-                    'error' => $exception->getMessage(),
-                ]);
+
+                if ($index < count($provinces) - 1) {
+                    sleep((int) config('inaproc_rekap_nasional.sleep_seconds', 3));
+                }
             }
 
-            if ($index < count($provinces) - 1) {
-                sleep((int) config('inaproc_rekap_nasional.sleep_seconds', 3));
+            $this->line("Selesai. Synced: {$synced}. Errors: {$errors}.");
+
+            if ($dryRun) {
+                $this->warn('Dry run mode - tidak ada data yang disimpan.');
             }
+
+            return Command::SUCCESS;
+        } catch (\Throwable $throwable) {
+            return $this->reportDestructiveImportFailure($throwable, 'inaproc:sync-rekap-nasional');
         }
-
-        $this->line("Selesai. Synced: {$synced}. Errors: {$errors}.");
-
-        if ($dryRun) {
-            $this->warn('Dry run mode - tidak ada data yang disimpan.');
-        }
-
-        return $errors > 0 ? 1 : 0;
     }
 
     private function selectedProvinces(): array

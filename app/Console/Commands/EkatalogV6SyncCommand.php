@@ -2,14 +2,16 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\DestructiveApiImportRefresh;
 use App\Models\EkatalogV6Paket;
 use App\Services\InaprocinaproApiClient;
 use App\Transformers\EkatalogV6Transformer;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 
 class EkatalogV6SyncCommand extends Command
 {
+    use DestructiveApiImportRefresh;
+
     protected $signature = 'inaproc:sync-ekatalog-v6 {--tahun=2026} {--all-years} {--dry-run} {--limit=0}';
     protected $description = 'Sync E-Katalog V6 Paket E-Purchasing from INAPROC API';
 
@@ -45,6 +47,10 @@ class EkatalogV6SyncCommand extends Command
         $this->skipped = 0;
 
         try {
+            if (!$this->dryRun) {
+                $this->truncateTargets([EkatalogV6Paket::class]);
+            }
+
             // Loop through each year
             foreach ($tahunList as $tahun) {
                 $this->tahun = (string)$tahun;
@@ -71,12 +77,10 @@ class EkatalogV6SyncCommand extends Command
                 $this->warn("Dry run mode - no data was saved");
             }
 
-            return 0;
+            return Command::SUCCESS;
 
-        } catch (\Exception $e) {
-            $this->error("Sync failed: " . $e->getMessage());
-            Log::error("EkatalogV6SyncCommand failed: " . $e->getMessage());
-            return 1;
+        } catch (\Throwable $throwable) {
+            return $this->reportDestructiveImportFailure($throwable, 'inaproc:sync-ekatalog-v6');
         }
     }
 
@@ -98,43 +102,37 @@ class EkatalogV6SyncCommand extends Command
                         return;
                     }
 
-                    try {
-                        // Check status filter
-                        $status = $item['status'] ?? null;
-                        if (!$status || !\in_array($status, $statusFilters)) {
-                            $this->skipped++;
-                            continue;
+                    // Check status filter
+                    $status = $item['status'] ?? null;
+                    if (!$status || !\in_array($status, $statusFilters)) {
+                        $this->skipped++;
+                        continue;
+                    }
+
+                    // Validate required fields
+                    $required = ['count_product', 'order_date', 'order_id', 'status',
+                               'total', 'total_qty', 'kode_satker', 'nama_satker'];
+
+                    foreach ($required as $field) {
+                        if (!\array_key_exists($field, $item) || $item[$field] === null) {
+                            throw new \Exception("Missing required field: $field");
                         }
+                    }
 
-                        // Validate required fields
-                        $required = ['count_product', 'order_date', 'order_id', 'status',
-                                   'total', 'total_qty', 'kode_satker', 'nama_satker'];
+                    $transformed = EkatalogV6Transformer::paketEPurchasing($item);
 
-                        foreach ($required as $field) {
-                            if (!\array_key_exists($field, $item) || $item[$field] === null) {
-                                throw new \Exception("Missing required field: $field");
-                            }
-                        }
+                    if (!$this->dryRun) {
+                        EkatalogV6Paket::updateOrCreate(
+                            ['kd_paket' => $transformed['kd_paket'] ?? null],
+                            $transformed
+                        );
+                    }
 
-                        $transformed = EkatalogV6Transformer::paketEPurchasing($item);
+                    $this->synced++;
+                    $itemCount++;
 
-                        if (!$this->dryRun) {
-                            EkatalogV6Paket::updateOrCreate(
-                                ['kd_paket' => $transformed['kd_paket'] ?? null],
-                                $transformed
-                            );
-                        }
-
-                        $this->synced++;
-                        $itemCount++;
-
-                        if ($this->synced % 50 === 0) {
-                            $this->info("  Processed: {$this->synced} paket e-purchasing");
-                        }
-
-                    } catch (\Exception $e) {
-                        $this->error("  Error: " . $e->getMessage());
-                        $this->errors++;
+                    if ($this->synced % 50 === 0) {
+                        $this->info("  Processed: {$this->synced} paket e-purchasing");
                     }
                 }
             }

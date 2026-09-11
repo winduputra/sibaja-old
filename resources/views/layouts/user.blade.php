@@ -99,6 +99,77 @@
         color: #000000 !important;
     }
 
+    .sibaja-user-navbar.navbar-expand-lg {
+        flex-wrap: wrap;
+    }
+
+    .sibaja-user-navbar .global-api-sync-row {
+        --sibaja-brand-primary: #2b529a;
+        --sibaja-brand-deep: #0f2c74;
+        --sibaja-surface-primary: #ffffff;
+        --sibaja-border-default: #dddddd;
+        --sibaja-space-1: 0.25rem;
+        --sibaja-space-2: 0.5rem;
+        --sibaja-space-3: 0.75rem;
+        --sibaja-radius-lg: 0.5rem;
+        --sibaja-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+        display: flex;
+        width: 100%;
+        max-width: 100%;
+        flex-basis: 100%;
+        box-sizing: border-box;
+        align-items: center;
+        justify-content: flex-end;
+        padding-top: 0;
+        padding-bottom: var(--sibaja-space-1);
+    }
+
+    .sibaja-user-navbar .global-api-sync-indicator {
+
+        display: inline-flex;
+        align-items: center;
+        flex: 0 0 auto;
+        gap: var(--sibaja-space-2);
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin-left: auto;
+        padding: var(--sibaja-space-1) var(--sibaja-space-3);
+        border: 1px solid var(--sibaja-border-default);
+        border-radius: var(--sibaja-radius-lg);
+        background-color: var(--sibaja-surface-primary);
+        color: var(--sibaja-brand-deep);
+        box-shadow: var(--sibaja-shadow-card);
+        line-height: 1.2;
+    }
+
+    .sibaja-user-navbar .global-api-sync-indicator__icon {
+        flex: 0 0 auto;
+        color: var(--sibaja-brand-primary);
+        font-size: 0.95rem;
+    }
+
+    .sibaja-user-navbar .global-api-sync-indicator__content {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+    }
+
+    .sibaja-user-navbar .global-api-sync-indicator__label {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .sibaja-user-navbar .global-api-sync-indicator__value {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
     @media (max-width: 991.98px) {
         .dropdown-menu {
             margin-left: 1rem;
@@ -130,6 +201,25 @@
         .dropdown-item {
             padding-left: 0.5rem;
         }
+
+        .sibaja-user-navbar .global-api-sync-row {
+            width: 100vw;
+            max-width: 100vw;
+            flex: 0 0 100vw;
+            min-width: 0;
+            margin-left: 0;
+            margin-right: 0;
+            justify-content: flex-start;
+            padding-top: var(--sibaja-space-2);
+            padding-bottom: var(--sibaja-space-2);
+        }
+
+        .sibaja-user-navbar .global-api-sync-indicator {
+            width: 100%;
+            max-width: 100%;
+            margin-left: 0;
+            padding: var(--sibaja-space-2) var(--sibaja-space-3);
+        }
     }
 
 </style>
@@ -140,7 +230,7 @@
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-light shadow-sm sticky-top">
+<nav class="navbar navbar-expand-lg navbar-light shadow-sm sticky-top sibaja-user-navbar">
   <div class="container-fluid px-4">
 
     <!-- Logo -->
@@ -255,6 +345,51 @@
           </ul>
         </li>
       </ul>
+    </div>
+  </div>
+
+  @php
+    $lastGlobalApiSyncFinishedAt = ($lastGlobalApiSync ?? null)?->finished_at;
+    $lastGlobalApiSyncDisplay = null;
+    $lastGlobalApiSyncIso = null;
+
+    if ($lastGlobalApiSyncFinishedAt) {
+        $indonesianMonths = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ];
+
+        $lastGlobalApiSyncDisplay = $lastGlobalApiSyncFinishedAt->format('j') . ' '
+            . $indonesianMonths[(int) $lastGlobalApiSyncFinishedAt->format('n')] . ' '
+            . $lastGlobalApiSyncFinishedAt->format('Y H:i');
+        $lastGlobalApiSyncIso = $lastGlobalApiSyncFinishedAt->toIso8601String();
+    }
+
+    $lastGlobalApiSyncTitle = 'Sinkronisasi API terakhir: '
+        . ($lastGlobalApiSyncDisplay ?? 'Belum pernah disinkronkan');
+  @endphp
+
+  <div class="container-fluid px-4 global-api-sync-row">
+    <div class="global-api-sync-indicator" role="group" aria-labelledby="global-api-sync-label" aria-describedby="global-api-sync-value" title="{{ $lastGlobalApiSyncTitle }}">
+      <i class="bi bi-arrow-repeat global-api-sync-indicator__icon" aria-hidden="true"></i>
+      <span class="global-api-sync-indicator__content">
+        <span class="global-api-sync-indicator__label" id="global-api-sync-label">Sinkronisasi API terakhir</span>
+        @if ($lastGlobalApiSyncDisplay)
+          <time class="global-api-sync-indicator__value" id="global-api-sync-value" datetime="{{ $lastGlobalApiSyncIso }}">{{ $lastGlobalApiSyncDisplay }}</time>
+        @else
+          <span class="global-api-sync-indicator__value" id="global-api-sync-value">Belum pernah disinkronkan</span>
+        @endif
+      </span>
     </div>
   </div>
 </nav>

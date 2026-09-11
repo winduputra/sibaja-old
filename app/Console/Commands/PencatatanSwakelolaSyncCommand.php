@@ -2,16 +2,18 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\DestructiveApiImportRefresh;
 use App\Models\PencatatanSwakelola;
 use App\Models\SwakelolaRealisasi;
 use App\Services\InaprocinaproApiClient;
 use App\Transformers\SwakelolaTransformer;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class PencatatanSwakelolaSyncCommand extends Command
 {
+    use DestructiveApiImportRefresh;
+
     protected $signature = 'inaproc:sync-pencatatan-swakelola {--type=all} {--tahun=2026} {--all-years} {--dry-run} {--limit=0}';
     protected $description = 'Sync Pencatatan Swakelola realization from INAPROC API; planning uses local RUP data';
 
@@ -30,6 +32,10 @@ class PencatatanSwakelolaSyncCommand extends Command
         $tahunList = $this->tahunList();
 
         try {
+            if (!$this->dryRun) {
+                $this->truncateTargets($this->getRefreshTargets($type));
+            }
+
             foreach ($tahunList as $tahun) {
                 $this->tahun = (string) $tahun;
                 $this->info("\nSyncing Pencatatan Swakelola for Year: {$this->tahun}");
@@ -51,13 +57,22 @@ class PencatatanSwakelolaSyncCommand extends Command
                 $this->warn('Dry run mode - no data was saved');
             }
 
-            return $this->errors > 0 ? 1 : 0;
-        } catch (\Throwable $exception) {
-            $this->error('Sync failed: ' . $exception->getMessage());
-            Log::error('PencatatanSwakelolaSyncCommand failed', ['error' => $exception->getMessage()]);
-
-            return 1;
+            return Command::SUCCESS;
+        } catch (\Throwable $throwable) {
+            return $this->reportDestructiveImportFailure($throwable, 'inaproc:sync-pencatatan-swakelola');
         }
+    }
+
+    /**
+     * @return array<int, class-string<\Illuminate\Database\Eloquent\Model>>
+     */
+    private function getRefreshTargets(string $type): array
+    {
+        if ($type === 'all' || $type === 'realisasi' || $type === 'tercatat') {
+            return [SwakelolaRealisasi::class];
+        }
+
+        return [];
     }
 
     private function tahunList(): array
@@ -82,23 +97,18 @@ class PencatatanSwakelolaSyncCommand extends Command
                     return;
                 }
 
-                try {
-                    $this->validateRequired($item, ['kd_swakelola_pct', 'kd_satker', 'nama_paket', 'nama_satker', 'pagu']);
-                    $transformed = SwakelolaTransformer::pencatatan($item, $this->tahun);
+                $this->validateRequired($item, ['kd_swakelola_pct', 'kd_satker', 'nama_paket', 'nama_satker', 'pagu']);
+                $transformed = SwakelolaTransformer::pencatatan($item, $this->tahun);
 
-                    if (!$this->dryRun) {
-                        PencatatanSwakelola::updateOrCreate(
-                            ['kd_swakelola_pct' => $transformed['kd_swakelola_pct']],
-                            $transformed
-                        );
-                    }
-
-                    $localSynced++;
-                    $itemCount++;
-                } catch (\Throwable $exception) {
-                    $this->errors++;
-                    $this->error('  Error: ' . $exception->getMessage());
+                if (!$this->dryRun) {
+                    PencatatanSwakelola::updateOrCreate(
+                        ['kd_swakelola_pct' => $transformed['kd_swakelola_pct']],
+                        $transformed
+                    );
                 }
+
+                $localSynced++;
+                $itemCount++;
             }
         });
 
@@ -119,29 +129,24 @@ class PencatatanSwakelolaSyncCommand extends Command
                     return;
                 }
 
-                try {
-                    $this->validateRequired($item, ['jenis_realisasi', 'kd_swakelola_pct', 'kd_satker']);
-                    $transformed = $this->fillSatkerFromPlanning(
-                        SwakelolaTransformer::pencatatanRealisasi($item, $this->tahun)
+                $this->validateRequired($item, ['jenis_realisasi', 'kd_swakelola_pct', 'kd_satker']);
+                $transformed = $this->fillSatkerFromPlanning(
+                    SwakelolaTransformer::pencatatanRealisasi($item, $this->tahun)
+                );
+
+                if (!$this->dryRun) {
+                    SwakelolaRealisasi::updateOrCreate(
+                        [
+                            'tahun_anggaran' => $transformed['tahun_anggaran'],
+                            'kd_swakelola_pct' => $transformed['kd_swakelola_pct'],
+                            'no_realisasi' => $transformed['no_realisasi'],
+                        ],
+                        $transformed
                     );
-
-                    if (!$this->dryRun) {
-                        SwakelolaRealisasi::updateOrCreate(
-                            [
-                                'tahun_anggaran' => $transformed['tahun_anggaran'],
-                                'kd_swakelola_pct' => $transformed['kd_swakelola_pct'],
-                                'no_realisasi' => $transformed['no_realisasi'],
-                            ],
-                            $transformed
-                        );
-                    }
-
-                    $localSynced++;
-                    $itemCount++;
-                } catch (\Throwable $exception) {
-                    $this->errors++;
-                    $this->error('  Error: ' . $exception->getMessage());
                 }
+
+                $localSynced++;
+                $itemCount++;
             }
         });
 

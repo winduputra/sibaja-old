@@ -2,16 +2,19 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\DestructiveApiImportRefresh;
 use App\Models\KontrakData;
 use App\Models\TenderPengumumanData;
 use App\Models\TenderSelesaiNilaiData;
 use App\Services\InaprocinaproApiClient;
 use App\Transformers\TenderTransformer;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class TenderSyncCommand extends Command
 {
+    use DestructiveApiImportRefresh;
+
     protected $signature = 'inaproc:sync-tender {--type=all} {--tahun=2026} {--all-years} {--dry-run} {--limit=0}';
     protected $description = 'Sync Tender (Pengumuman, EkontrakKontrak, SelesaiNilai) from INAPROC API';
 
@@ -48,6 +51,10 @@ class TenderSyncCommand extends Command
         $this->skipped = 0;
 
         try {
+            if (!$this->dryRun) {
+                $this->truncateTargets($this->getRefreshTargets($type));
+            }
+
             // Loop through each year
             foreach ($tahunList as $tahun) {
                 $this->tahun = (string)$tahun;
@@ -81,17 +88,43 @@ class TenderSyncCommand extends Command
             $this->line("Total errors: {$this->errors}");
             $this->line("Total skipped: {$this->skipped}");
 
+            if ($this->errors > 0) {
+                throw new RuntimeException("Sinkronisasi Tender selesai dengan {$this->errors} kesalahan. Silakan coba lagi.");
+            }
+
             if ($this->dryRun) {
                 $this->warn("Dry run mode - no data was saved");
             }
 
-            return 0;
+            return Command::SUCCESS;
 
-        } catch (\Exception $e) {
-            $this->error("Sync failed: " . $e->getMessage());
-            Log::error("TenderSyncCommand failed: " . $e->getMessage());
-            return 1;
+        } catch (\Throwable $throwable) {
+            return $this->reportDestructiveImportFailure($throwable, 'inaproc:sync-tender');
         }
+    }
+
+    /**
+     * @return array<int, class-string<\Illuminate\Database\Eloquent\Model>>
+     */
+    protected function getRefreshTargets(string $type): array
+    {
+        if ($type === 'all') {
+            return [TenderPengumumanData::class, KontrakData::class, TenderSelesaiNilaiData::class];
+        }
+
+        if ($type === 'pengumuman') {
+            return [TenderPengumumanData::class];
+        }
+
+        if ($type === 'ekontrak') {
+            return [KontrakData::class];
+        }
+
+        if ($type === 'selesai') {
+            return [TenderSelesaiNilaiData::class];
+        }
+
+        return [];
     }
 
     protected function syncPengumuman(): void

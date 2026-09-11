@@ -2,78 +2,16 @@
 
 namespace App\Console\Commands;
 
+use App\Support\LegacyIsbImportDisabled;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use App\Models\EkatalogV5Paket;
-use App\Models\EkatalogV6Paket;
 
 class EkatalogUpdate extends Command
 {
     protected $signature = 'ekatalog:update';
-    protected $description = 'Ambil dan simpan data e-Katalog V5 (2024–2025) dan V6 (2025 saja)';
-    protected $klpd = 'D264';
+    protected $description = 'Dinonaktifkan: impor legacy ISB e-Katalog.';
 
-    public function handle()
+    public function handle(): int
     {
-        $this->info('🔄 Mengambil data e-Katalog V5 (2024 & 2025)...');
-
-        foreach ([2024, 2025] as $year) {
-            $this->fetchAndStore(
-                "https://isb.lkpp.go.id/isb-2/api/30fc0faf-22c8-41e9-adcf-8e8e841c9249/json/9610/Ecat-PaketEPurchasing/tipe/4:12/parameter/{$year}:{$this->klpd}",
-                EkatalogV5Paket::class,
-                $year
-            );
-        }
-
-        $this->info('🔄 Mengambil data e-Katalog V6 (2025)...');
-
-        $this->fetchAndStore(
-            "https://isb.lkpp.go.id/isb-2/api/a95611fd-9648-452e-bc6a-1c7275ab01f3/json/31035/Ecat-PaketEPurchasingV6/tipe/4:12/parameter/2025:{$this->klpd}",
-            EkatalogV6Paket::class,
-            2025
-        );
-
-        $this->info('✅ Semua data e-Katalog berhasil diperbarui.');
-    }
-
-    protected function fetchAndStore($url, $model, $year)
-    {
-        $modelName = class_basename($model);
-
-        $this->line("Mengambil data {$modelName} tahun {$year} dari API...");
-        $response = Http::get($url);
-
-        if ($response->successful()) {
-            $data = $response->json();
-            $total = count($data);
-            $processed = 0;
-
-            $this->line("Response diterima untuk {$modelName} tahun {$year}: {$total} paket. Mulai simpan data...");
-
-            $progressBar = $this->output->createProgressBar($total);
-
-            $progressBar->setRedrawFrequency(1000);
-            $progressBar->start();
-
-            foreach ($data as $item) {
-                $item['tahun_anggaran'] = $item['tahun_anggaran'] ?? $year;
-                $model::updateOrCreate($model::uniqueKeys($item), $item);
-
-                $processed++;
-                $progressBar->advance();
-
-                if ($processed % 1000 === 0) {
-                    $progressBar->clear();
-                    $this->line("  Progress {$modelName} {$year}: {$processed}/{$total} paket diproses");
-                    $progressBar->display();
-                }
-            }
-
-            $progressBar->finish();
-            $this->newLine();
-            $this->info("✔ Data disimpan untuk {$modelName} tahun {$year}: {$total} paket");
-        } else {
-            $this->error("✖ Gagal mengambil data dari {$url}");
-        }
+        return LegacyIsbImportDisabled::forCommand($this);
     }
 }

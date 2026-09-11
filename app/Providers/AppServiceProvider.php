@@ -2,10 +2,11 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\View;
+use App\Services\ApiSyncRunRecorder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $nonTenderYears = [];
         $tenderYears = [];
+        $lastGlobalApiSync = null;
 
         if (Schema::hasTable('non_tender_pengumuman')) {
             $nonTenderYears = DB::table('non_tender_pengumuman')
@@ -42,10 +44,15 @@ class AppServiceProvider extends ServiceProvider
                 ->toArray();
         }
 
+        if (Schema::hasTable('api_sync_runs')) {
+            $lastGlobalApiSync = (new ApiSyncRunRecorder())->latestSuccessfulGlobalRun();
+        }
+
         // Bagikan ke semua view
         View::share([
             'nonTenderYears' => $nonTenderYears,
             'tenderYears' => $tenderYears,
+            'lastGlobalApiSync' => $lastGlobalApiSync,
         ]);
 
     }
