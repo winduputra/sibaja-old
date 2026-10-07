@@ -599,11 +599,13 @@ return view('users.home', compact(
         $yearStart = Carbon::create((int) $tahun, 1, 1)->startOfDay()->toDateTimeString();
         $rangeStart = $dateRange['start']->copy()->toDateTimeString();
         $rangeEnd = $dateRange['end']->copy()->toDateTimeString();
-        $flooredDateExpression = "CASE WHEN {$column} < ? THEN ? ELSE {$column} END";
+        $dateTimeColumn = "CAST({$column} AS DATETIME)";
+        $flooredDateExpression = "CASE WHEN {$dateTimeColumn} < CAST(? AS DATETIME) "
+            . "THEN CAST(? AS DATETIME) ELSE {$dateTimeColumn} END";
 
         return $query->where(function ($query) use ($column, $flooredDateExpression, $yearStart, $rangeStart, $rangeEnd) {
             $query->whereNotNull($column)
-                ->whereRaw("{$flooredDateExpression} BETWEEN ? AND ?", [
+                ->whereRaw("{$flooredDateExpression} BETWEEN CAST(? AS DATETIME) AND CAST(? AS DATETIME)", [
                     $yearStart,
                     $yearStart,
                     $rangeStart,
