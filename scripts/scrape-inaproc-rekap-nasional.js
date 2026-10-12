@@ -11,6 +11,7 @@ async function main() {
     const url = arg('url');
     const timeout = Number(arg('timeout', '90000'));
     const waitText = arg('wait-text', 'Realisasi Swakelola');
+    const selector = arg('selector');
 
     if (!url) {
         throw new Error('Missing --url argument');
@@ -27,6 +28,13 @@ async function main() {
         });
 
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout });
+
+        if (selector) {
+            const textContent = await page.locator(selector).first().textContent({ timeout });
+            process.stdout.write(JSON.stringify({ url, selector, textContent }));
+            return;
+        }
+
         await page.waitForFunction(
             (text) => document.body && document.body.innerText.includes(text),
             waitText,

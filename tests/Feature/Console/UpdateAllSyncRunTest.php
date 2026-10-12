@@ -58,6 +58,7 @@ class UpdateAllSyncRunTest extends TestCase
 
         $this->expectModuleCalls([
             ['inaproc:sync-rup', ['--tahun' => '2026', '--type' => 'all']],
+            ['inaproc:sync-belanja-pengadaan', []],
             ['inaproc:sync-tender', ['--tahun' => '2026', '--type' => 'all']],
             ['inaproc:sync-non-tender', ['--tahun' => '2026', '--type' => 'all']],
             ['inaproc:sync-pencatatan-swakelola', ['--tahun' => '2026', '--type' => 'all']],
@@ -83,7 +84,7 @@ class UpdateAllSyncRunTest extends TestCase
         $this->assertTrue($recordedRun->is_global);
         $this->assertSame($finishedAt->toDateTimeString(), $recordedRun->finished_at->toDateTimeString());
         $this->assertSame(
-            ['rup', 'tender', 'non-tender', 'pencatatan-swakelola', 'ekatalog', 'rekap-nasional'],
+            ['rup', 'belanja-pengadaan', 'tender', 'non-tender', 'pencatatan-swakelola', 'ekatalog', 'rekap-nasional'],
             $recordedRun->modules
         );
     }
@@ -150,12 +151,13 @@ class UpdateAllSyncRunTest extends TestCase
                 ],
                 [
                     ['inaproc:sync-rup', ['--tahun' => '2026', '--type' => 'all']],
+                    ['inaproc:sync-belanja-pengadaan', []],
                     ['inaproc:sync-tender', ['--tahun' => '2026', '--type' => 'all']],
                     ['inaproc:sync-non-tender', ['--tahun' => '2026', '--type' => 'all']],
                     ['inaproc:sync-pencatatan-swakelola', ['--tahun' => '2026', '--type' => 'all']],
                     ['inaproc:sync-rekap-nasional', []],
                 ],
-                ['rup', 'tender', 'non-tender', 'pencatatan-swakelola', 'rekap-nasional'],
+                ['rup', 'belanja-pengadaan', 'tender', 'non-tender', 'pencatatan-swakelola', 'rekap-nasional'],
             ],
             'limit' => [
                 'limit',
@@ -169,13 +171,14 @@ class UpdateAllSyncRunTest extends TestCase
                 ],
                 [
                     ['inaproc:sync-rup', ['--tahun' => '2026', '--type' => 'all', '--limit' => 1]],
+                    ['inaproc:sync-belanja-pengadaan', ['--limit' => 1]],
                     ['inaproc:sync-tender', ['--tahun' => '2026', '--type' => 'all', '--limit' => 1]],
                     ['inaproc:sync-non-tender', ['--tahun' => '2026', '--type' => 'all', '--limit' => 1]],
                     ['inaproc:sync-pencatatan-swakelola', ['--tahun' => '2026', '--type' => 'all', '--limit' => 1]],
                     ['inaproc:sync-ekatalog-v6', ['--tahun' => '2026', '--limit' => 1]],
                     ['inaproc:sync-rekap-nasional', ['--limit' => 1]],
                 ],
-                ['rup', 'tender', 'non-tender', 'pencatatan-swakelola', 'ekatalog', 'rekap-nasional'],
+                ['rup', 'belanja-pengadaan', 'tender', 'non-tender', 'pencatatan-swakelola', 'ekatalog', 'rekap-nasional'],
             ],
         ];
     }
@@ -187,6 +190,7 @@ class UpdateAllSyncRunTest extends TestCase
 
         $this->expectModuleCalls([
             ['inaproc:sync-rup', ['--tahun' => '2026', '--type' => 'all', '--dry-run' => true]],
+            ['inaproc:sync-belanja-pengadaan', ['--dry-run' => true]],
             ['inaproc:sync-tender', ['--tahun' => '2026', '--type' => 'all', '--dry-run' => true]],
             ['inaproc:sync-non-tender', ['--tahun' => '2026', '--type' => 'all', '--dry-run' => true]],
             ['inaproc:sync-pencatatan-swakelola', ['--tahun' => '2026', '--type' => 'all', '--dry-run' => true]],
@@ -220,7 +224,7 @@ class UpdateAllSyncRunTest extends TestCase
             'command' => 'update:all',
             'status' => ApiSyncRun::STATUS_SUCCEEDED,
             'is_global' => true,
-            'modules' => ['rup', 'tender', 'non-tender', 'pencatatan-swakelola', 'ekatalog', 'rekap-nasional'],
+            'modules' => ['rup', 'belanja-pengadaan', 'tender', 'non-tender', 'pencatatan-swakelola', 'ekatalog', 'rekap-nasional'],
             'options' => ['tahun' => 2026, 'type' => 'all'],
             'started_at' => $olderSuccess,
             'finished_at' => $olderSuccess,

@@ -27,12 +27,14 @@ class Satker extends Model
         'jenis_klpd',
         'kode_eselon',
         'sync_source',
+        'belanja_pengadaan',
         'last_synced_at',
         'migrated_at',
     ];
 
     protected $casts = [
         'tahun_aktif_json' => 'json',
+        'belanja_pengadaan' => 'float',
         'last_synced_at' => 'datetime',
         'migrated_at' => 'datetime',
     ];

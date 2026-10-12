@@ -15,7 +15,7 @@ class RupBulananReportService
         $provider = $this->planningByOrganization('penyedias', $tahun);
         $selfManaged = $this->planningByOrganization('swakelolas', $tahun);
         $rows = DB::table('satkers')
-            ->select('kd_satker', 'nama_satker')
+            ->select('kd_satker', 'nama_satker', 'belanja_pengadaan')
             ->where('tahun_anggaran', $tahun)
             ->where('kd_klpd', self::KLPD_CODE)
             ->where('kd_satker', '!=', self::EXCLUDED_SATKER_CODE)
@@ -28,7 +28,13 @@ class RupBulananReportService
                 $providerMetrics = $provider[$organizationCode] ?? $this->emptyPlanning();
                 $selfManagedMetrics = $selfManaged[$organizationCode] ?? $this->emptyPlanning();
 
-                return $this->reportRow($index + 1, (string) $satker->nama_satker, $providerMetrics, $selfManagedMetrics);
+                return $this->reportRow(
+                    $index + 1,
+                    (string) $satker->nama_satker,
+                    (float) ($satker->belanja_pengadaan ?? 0),
+                    $providerMetrics,
+                    $selfManagedMetrics
+                );
             })
             ->all();
 
@@ -55,19 +61,21 @@ class RupBulananReportService
             ->whereNotNull('kd_satker')
             ->groupBy('kd_satker')
             ->get()
-            ->mapWithKeys(fn ($row): array => [
-                (string) $row->kd_satker => [
-                    'packageCount' => (int) $row->package_count,
-                    'budget' => (float) $row->budget,
-                ],
-            ])
+            ->mapWithKeys(function ($row): array {
+                return [
+                    (string) $row->kd_satker => [
+                        'packageCount' => (int) $row->package_count,
+                        'budget' => (float) $row->budget,
+                    ],
+                ];
+            })
             ->all();
     }
 
-    private function reportRow(int $number, string $organizationName, array $provider, array $selfManaged): array
+    private function reportRow(int $number, string $organizationName, float $procurementBudget, array $provider, array $selfManaged): array
     {
-        $procurementBudget = $provider['budget'] + $selfManaged['budget'];
         $totalPackageCount = $provider['packageCount'] + $selfManaged['packageCount'];
+        $totalBudget = $provider['budget'] + $selfManaged['budget'];
 
         return [
             'number' => $number,
@@ -80,8 +88,8 @@ class RupBulananReportService
             'selfManagedBudget' => $selfManaged['budget'],
             'selfManagedPercentage' => $this->percentage($selfManaged['budget'], $procurementBudget),
             'totalPackageCount' => $totalPackageCount,
-            'totalBudget' => $procurementBudget,
-            'totalPercentage' => $this->percentage($procurementBudget, $procurementBudget),
+            'totalBudget' => $totalBudget,
+            'totalPercentage' => $this->percentage($totalBudget, $procurementBudget),
         ];
     }
 

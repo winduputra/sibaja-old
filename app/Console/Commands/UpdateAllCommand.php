@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class UpdateAllCommand extends Command
 {
     protected $signature = 'update:all {--tahun=2026} {--all-years} {--dry-run} {--limit=0} {--only=} {--skip=}';
-    protected $description = 'Sync ALL data from INAPROC API (RUP, Tender, Non-Tender, Pencatatan Swakelola, E-Katalog, Rekap Nasional)';
+    protected $description = 'Sync ALL data from INAPROC API and rendered pages (RUP, Belanja Pengadaan, Tender, Non-Tender, Pencatatan Swakelola, E-Katalog, Rekap Nasional)';
 
     protected $totalSynced = 0;
     protected $totalErrors = 0;
@@ -166,6 +166,12 @@ class UpdateAllCommand extends Command
                 'name' => 'RUP Data',
                 'command' => 'inaproc:sync-rup',
                 'options' => ['type' => 'all'],
+            ],
+            'belanja-pengadaan' => [
+                'name' => 'Belanja Pengadaan Satker',
+                'command' => 'inaproc:sync-belanja-pengadaan',
+                'options' => [],
+                'passes_year_options' => false,
             ],
             'tender' => [
                 'name' => 'Tender Data',
@@ -325,7 +331,7 @@ class UpdateAllCommand extends Command
             && $skipModules === []
             && $limit === 0
             && array_keys($modulesToRun) === array_keys($this->moduleDefinitions())
-            && count($modulesToRun) === 6;
+            && count($modulesToRun) === 7;
     }
 
     protected function syncRunRecorder(): ApiSyncRunRecorder
