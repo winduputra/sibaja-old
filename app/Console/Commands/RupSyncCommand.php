@@ -100,6 +100,11 @@ class RupSyncCommand extends Command
                 throw new RuntimeException("Sinkronisasi RUP selesai dengan {$this->errors} kesalahan. Silakan coba lagi.");
             }
 
+            if ($this->shouldPruneSatkers($type)) {
+                $prunedSatkers = $this->pruneSatkersWithoutActivePackages();
+                $this->info("Satker without active RUP packages removed: {$prunedSatkers}");
+            }
+
             if ($this->dryRun) {
                 $this->warn("Dry run mode - no data was saved");
             }
@@ -109,6 +114,35 @@ class RupSyncCommand extends Command
         } catch (\Throwable $throwable) {
             return $this->reportDestructiveImportFailure($throwable, 'inaproc:sync-rup');
         }
+    }
+
+    protected function shouldPruneSatkers(string $type): bool
+    {
+        return $type === 'all'
+            && !$this->dryRun
+            && $this->limit === 0
+            && $this->errors === 0;
+    }
+
+    protected function pruneSatkersWithoutActivePackages(): int
+    {
+        return Satker::query()
+            ->where('tahun_anggaran', '2026')
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('penyedias')
+                    ->whereColumn('penyedias.kd_satker', 'satkers.kd_satker')
+                    ->where('penyedias.status_aktif_rup', true)
+                    ->where('penyedias.status_umumkan_rup', 'Terumumkan');
+            })
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('swakelolas')
+                    ->whereColumn('swakelolas.kd_satker', 'satkers.kd_satker')
+                    ->where('swakelolas.status_aktif_rup', true)
+                    ->where('swakelolas.status_umumkan_rup', 'Terumumkan');
+            })
+            ->delete();
     }
 
     /**
