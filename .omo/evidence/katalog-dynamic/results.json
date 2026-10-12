@@ -1,0 +1,140 @@
+{
+  "dynamicResults": [
+    {
+      "viewport": "desktop",
+      "month": "Agustus",
+      "status": 200,
+      "captionVisible": true,
+      "priorHeaderPresent": true,
+      "selectedHeaderPresent": true,
+      "cumulativeHeaderPresent": true,
+      "columnCount": 7,
+      "rowCount": 49,
+      "bodyOverflow": false,
+      "focusWorks": true,
+      "clientWidth": 1254,
+      "scrollWidth": 1254,
+      "maxScrollLeft": 0,
+      "reachedScrollLeft": 0
+    },
+    {
+      "viewport": "desktop",
+      "month": "September",
+      "status": 200,
+      "captionVisible": true,
+      "priorHeaderPresent": true,
+      "selectedHeaderPresent": true,
+      "cumulativeHeaderPresent": true,
+      "columnCount": 7,
+      "rowCount": 49,
+      "bodyOverflow": false,
+      "focusWorks": true,
+      "clientWidth": 1254,
+      "scrollWidth": 1254,
+      "maxScrollLeft": 0,
+      "reachedScrollLeft": 0
+    },
+    {
+      "viewport": "tablet",
+      "month": "Agustus",
+      "status": 200,
+      "captionVisible": true,
+      "priorHeaderPresent": true,
+      "selectedHeaderPresent": true,
+      "cumulativeHeaderPresent": true,
+      "columnCount": 7,
+      "rowCount": 49,
+      "bodyOverflow": false,
+      "focusWorks": true,
+      "clientWidth": 742,
+      "scrollWidth": 1227,
+      "maxScrollLeft": 485,
+      "reachedScrollLeft": 485
+    },
+    {
+      "viewport": "tablet",
+      "month": "September",
+      "status": 200,
+      "captionVisible": true,
+      "priorHeaderPresent": true,
+      "selectedHeaderPresent": true,
+      "cumulativeHeaderPresent": true,
+      "columnCount": 7,
+      "rowCount": 49,
+      "bodyOverflow": false,
+      "focusWorks": true,
+      "clientWidth": 742,
+      "scrollWidth": 1227,
+      "maxScrollLeft": 485,
+      "reachedScrollLeft": 485
+    },
+    {
+      "viewport": "mobile",
+      "month": "Agustus",
+      "status": 200,
+      "captionVisible": true,
+      "priorHeaderPresent": true,
+      "selectedHeaderPresent": true,
+      "cumulativeHeaderPresent": true,
+      "columnCount": 7,
+      "rowCount": 49,
+      "bodyOverflow": false,
+      "focusWorks": true,
+      "clientWidth": 349,
+      "scrollWidth": 1227,
+      "maxScrollLeft": 878,
+      "reachedScrollLeft": 878
+    },
+    {
+      "viewport": "mobile",
+      "month": "September",
+      "status": 200,
+      "captionVisible": true,
+      "priorHeaderPresent": true,
+      "selectedHeaderPresent": true,
+      "cumulativeHeaderPresent": true,
+      "columnCount": 7,
+      "rowCount": 49,
+      "bodyOverflow": false,
+      "focusWorks": true,
+      "clientWidth": 349,
+      "scrollWidth": 1227,
+      "maxScrollLeft": 878,
+      "reachedScrollLeft": 878
+    }
+  ],
+  "workbookResults": [
+    {
+      "slug": "rup",
+      "status": 200,
+      "workbookTableVisible": true,
+      "dynamicTableCount": 0
+    },
+    {
+      "slug": "e-kontrak",
+      "status": 200,
+      "workbookTableVisible": true,
+      "dynamicTableCount": 0
+    },
+    {
+      "slug": "pencatatan-swakelola",
+      "status": 200,
+      "workbookTableVisible": true,
+      "dynamicTableCount": 0
+    },
+    {
+      "slug": "pencatatan-non-tender",
+      "status": 200,
+      "workbookTableVisible": true,
+      "dynamicTableCount": 0
+    },
+    {
+      "slug": "loka-pasar",
+      "status": 200,
+      "workbookTableVisible": true,
+      "dynamicTableCount": 0
+    }
+  ],
+  "filterSubmitWorks": true,
+  "consoleErrors": []
+}

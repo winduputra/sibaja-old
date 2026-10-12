@@ -54,10 +54,14 @@ class TenderTransformer
             'nama_paket' => $item['nama_paket'] ?? null,
             'lingkup_pekerjaan' => $item['lingkup_pekerjaan'] ?? null,
             'no_sppbj' => $item['no_sppbj'] ?? null,
+            'tgl_sppbj' => self::parseDateTime($item['tgl_sppbj'] ?? null),
             'no_kontrak' => $item['no_kontrak'] ?? null,
             'tgl_kontrak' => self::parseDateTime($item['tgl_kontrak'] ?? null),
             'tgl_kontrak_awal' => self::parseDateTime($item['tgl_kontrak_awal'] ?? null),
             'tgl_kontrak_akhir' => self::parseDateTime($item['tgl_kontrak_akhir'] ?? null),
+            'tgl_spmk_spp' => self::parseDateTime($item['tgl_spmk_spp'] ?? null),
+            'tgl_bap' => self::parseDateTime($item['tgl_bap'] ?? null),
+            'tgl_bast' => self::parseDateTime($item['tgl_bast'] ?? null),
             'kota_kontrak' => $item['kota_kontrak'] ?? null,
             'nip_ppk' => $item['nip_ppk'] ?? null,
             'nama_ppk' => $item['nama_ppk'] ?? null,
@@ -159,18 +163,8 @@ class TenderTransformer
         }
 
         try {
-            // Handle ISO 8601 format: 2026-03-05T22:38:31.06Z
-            // Convert to: 2026-03-05 22:38:31
-            $dt = \DateTime::createFromFormat('Y-m-d\TH:i:s*', $value);
-            if ($dt === false) {
-                // Try alternative formats
-                $dt = \DateTime::createFromFormat('Y-m-d H:i:s', $value);
-            }
-            if ($dt === false) {
-                return null;
-            }
-            return $dt->format('Y-m-d H:i:s');
-        } catch (\Exception $e) {
+            return (new \DateTimeImmutable((string) $value))->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) {
             return null;
         }
     }

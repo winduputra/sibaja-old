@@ -112,18 +112,14 @@ return [
             ],
 
             'tender_ekontrak_kontrak' => [
-                'path' => 'tender/tender-ekontrak-kontrak',
+                'path' => 'tender/tender-ekontrak',
                 'method' => 'GET',
                 'params' => ['kode_klpd' => 'D264', 'tahun' => '2026', 'limit' => 1000],
                 'supported_years' => [2025, 2026],
                 'filters' => [],
-                'required_fields' => [
-                    'jenis_kontrak', 'kd_satker', 'kd_tender', 'nama_paket',
-                    'nama_satker', 'status_kontrak'
-                    // nilai_kontrak is optional - may not exist for all ekontrak records yet
-                ],
-                'model' => 'App\Models\Tender',
-                'table' => 'tenders',
+                'required_fields' => ['kd_tender'],
+                'model' => 'App\Models\KontrakData',
+                'table' => 'kontrak_data',
                 'unique_key' => ['kd_tender'],
             ],
 

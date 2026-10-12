@@ -188,7 +188,7 @@ class TenderSyncCommand extends Command
     {
         $this->line("\n> Syncing Tender Ekontrak Kontrak...");
         $apiClient = new InaprocinaproApiClient();
-        $endpoint = 'tender/tender-ekontrak-kontrak';
+        $endpoint = 'tender/tender-ekontrak';
         $tahun = $this->tahun;
 
         $itemCount = 0;

@@ -324,6 +324,32 @@
         <li class="nav-item">
           <a class="nav-link {{ request()->routeIs('rekapitulasi-nasional') ? 'active' : '' }}" href="{{ route('rekapitulasi-nasional') }}">Rekapitulasi Nasional</a>
         </li>
+        <li class="nav-item dropdown position-relative">
+          @php
+            $laporanBulananSheets = [
+                'rup' => 'RUP',
+                'e-kontrak' => 'E-Kontrak',
+                'pencatatan-swakelola' => 'Pencatatan Swakelola',
+                'pencatatan-non-tender' => 'Pencatatan Non Tender',
+                'katalog' => 'Katalog',
+                'loka-pasar' => 'Loka Pasar',
+            ];
+          @endphp
+          <a class="nav-link dropdown-toggle {{ request()->routeIs('laporan-bulanan.*') ? 'active' : '' }}"
+             href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Laporan Bulanan
+          </a>
+          <ul class="dropdown-menu shadow rounded-3 p-1 bg-white">
+            @foreach ($laporanBulananSheets as $laporanBulananSlug => $laporanBulananLabel)
+              <li>
+                <a class="dropdown-item px-3 py-2 rounded-2 {{ request()->routeIs('laporan-bulanan.*') && request()->route('sheet') === $laporanBulananSlug ? 'active' : '' }}"
+                   href="{{ route('laporan-bulanan.show', ['sheet' => $laporanBulananSlug]) }}">
+                  {{ $laporanBulananLabel }}
+                </a>
+              </li>
+            @endforeach
+          </ul>
+        </li>
         <li class="nav-item">
           <a class="nav-link {{ request()->routeIs('pengadaan-langsung') ? 'active' : '' }}" href="{{ route('pengadaan-langsung') }}">Pengadaan Langsung</a>
         </li>

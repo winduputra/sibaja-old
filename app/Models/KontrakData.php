@@ -21,10 +21,14 @@ class KontrakData extends Model
         'kd_lpse',
         'lingkup_pekerjaan',
         'no_sppbj',
+        'tgl_sppbj',
         'no_kontrak',
         'tgl_kontrak',
         'tgl_kontrak_awal',
         'tgl_kontrak_akhir',
+        'tgl_spmk_spp',
+        'tgl_bap',
+        'tgl_bast',
         'kota_kontrak',
         'nip_ppk',
         'nama_ppk',
@@ -60,9 +64,13 @@ class KontrakData extends Model
     ];
 
     protected $casts = [
+        'tgl_sppbj' => 'datetime',
         'tgl_kontrak' => 'datetime',
         'tgl_kontrak_awal' => 'datetime',
         'tgl_kontrak_akhir' => 'datetime',
+        'tgl_spmk_spp' => 'datetime',
+        'tgl_bap' => 'datetime',
+        'tgl_bast' => 'datetime',
         'tgl_penetapan_status_kontrak' => 'datetime',
         'nilai_kontrak' => 'decimal:2',
         'nilai_pdn_kontrak' => 'decimal:2',

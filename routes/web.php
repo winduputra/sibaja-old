@@ -16,6 +16,7 @@ use App\Services\NonTenderService;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StrukturAnggaranController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LaporanBulananController;
 use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\PdnUmkTrackerController;
 use App\Http\Controllers\PencatatanNonTenderRealisasiController;
@@ -41,6 +42,10 @@ Route::post('/', [AuthController::class, 'login'])->middleware('guest')->name('l
 Route::get('/graph-report', [FrontController::class, 'report'])->name('report');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/home', [HomeController::class, 'index'])->middleware('auth')->name('home');
+Route::get('/laporan-bulanan/{sheet}', [LaporanBulananController::class, 'show'])
+    ->middleware('auth')
+    ->where('sheet', 'rup|e-kontrak|pencatatan-swakelola|pencatatan-non-tender|katalog|loka-pasar')
+    ->name('laporan-bulanan.show');
 
 Route::view('/realisasi/swakelola', 'placeholders.not-created', [
     'title' => 'Realisasi Swakelola',
