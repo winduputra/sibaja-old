@@ -34,7 +34,7 @@ return [
                     'tahun_aktif' => 2026, // Must include this year
                 ],
                 'required_fields' => ['kd_satker', 'nama_satker', 'tahun_aktif'],
-                'model' => 'App\Models\Satker',
+                'model' => App\Models\Satker::class,
                 'table' => 'satkers',
                 'unique_key' => ['kd_satker'],
             ],
@@ -54,7 +54,7 @@ return [
                     'tgl_akhir_pemilihan', 'tgl_awal_kontrak', 'tgl_awal_pemilihan',
                     'tgl_pengumuman_paket', 'tipe_paket', 'urarian_pekerjaan'
                 ],
-                'model' => 'App\Models\Penyedia',
+                'model' => App\Models\Penyedia::class,
                 'table' => 'penyedias',
                 'unique_key' => ['kd_rup'],
             ],
@@ -73,7 +73,7 @@ return [
                     'tgl_akhir_pelaksanaan_kontrak', 'tgl_awal_pelaksanaan_kontrak',
                     'tgl_buat_paket', 'tgl_pengumuman_paket', 'uraian_pekerjaan'
                 ],
-                'model' => 'App\Models\StrategicPackage',
+                'model' => App\Models\StrategicPackage::class,
                 'table' => 'strategic_packages',
                 'unique_key' => ['kd_rup'],
             ],
@@ -89,7 +89,7 @@ return [
                     'kd_klpd', 'tahun_anggaran', 'jenis_paket', 'jenis_revisi',
                     'kd_rup_baru', 'tgl_kaji_ulang'
                 ],
-                'model' => 'App\Models\RupHistoryKajiUlang',
+                'model' => App\Models\RupHistoryKajiUlang::class,
                 'table' => 'rup_history_kaji_ulang',
                 'unique_key' => ['payload_hash'],
             ],
@@ -106,7 +106,7 @@ return [
                     'kd_tender', 'mtd_pemilihan', 'nama_paket', 'nama_satker', 'pagu',
                     'status_tender', 'sumber_dana', 'tanggal_status', 'tgl_pengumuman_tender'
                 ],
-                'model' => 'App\Models\TenderPengumumanData',
+                'model' => App\Models\TenderPengumumanData::class,
                 'table' => 'tender_pengumuman_data',
                 'unique_key' => ['kd_tender'],
             ],
@@ -118,7 +118,7 @@ return [
                 'supported_years' => [2025, 2026],
                 'filters' => [],
                 'required_fields' => ['kd_tender'],
-                'model' => 'App\Models\KontrakData',
+                'model' => App\Models\KontrakData::class,
                 'table' => 'kontrak_data',
                 'unique_key' => ['kd_tender'],
             ],
@@ -133,7 +133,7 @@ return [
                     'hps', 'kd_tender', 'nama_satker', 'pagu'
                     // All nilai_* fields are optional - not all records have them
                 ],
-                'model' => 'App\Models\TenderSelesaiNilaiData',
+                'model' => App\Models\TenderSelesaiNilaiData::class,
                 'table' => 'tender_selesai_nilai_data',
                 'unique_key' => ['kd_tender'],
             ],
@@ -151,7 +151,7 @@ return [
                     'nama_paket', 'nama_satker', 'pagu', 'status_nontender', 'sumber_dana',
                     'tgl_buat_paket', 'tgl_pengumuman_nontender'
                 ],
-                'model' => 'App\Models\NonTenderPengumuman',
+                'model' => App\Models\NonTenderPengumuman::class,
                 'table' => 'non_tender_pengumuman',
                 'unique_key' => ['kd_nontender'],
             ],
@@ -167,7 +167,7 @@ return [
                     'mtd_pemilihan', 'nama_paket', 'nama_satker', 'pagu', 'status_nontender'
                     // All nilai_* fields are optional
                 ],
-                'model' => 'App\Models\NonTenderSelesai',
+                'model' => App\Models\NonTenderSelesai::class,
                 'table' => 'non_tender_selesai',
                 'unique_key' => ['kd_nontender'],
             ],
@@ -184,7 +184,7 @@ return [
                     'nama_paket', 'nama_satker', 'status_kontrak', 'tgl_kontrak'
                     // nilai_* fields are optional
                 ],
-                'model' => 'App\Models\NonTenderKontrak',
+                'model' => App\Models\NonTenderKontrak::class,
                 'table' => 'non_tender_contract',
                 'unique_key' => ['kd_nontender'],
             ],
@@ -198,7 +198,7 @@ return [
                 'required_fields' => [
                     'kd_nontender_pct', 'kd_satker', 'nama_paket', 'nama_satker', 'pagu'
                 ],
-                'model' => 'App\Models\PencatatanNonTender',
+                'model' => App\Models\PencatatanNonTender::class,
                 'table' => 'non_tender_pencatatan',
                 'unique_key' => ['kd_nontender_pct'],
             ],
@@ -214,7 +214,7 @@ return [
                     'nama_paket', 'nama_satker', 'pagu'
                     // nilai_realisasi is optional
                 ],
-                'model' => 'App\Models\RealisasiNonTender',
+                'model' => App\Models\RealisasiNonTender::class,
                 'table' => 'non_tender_realisasi',
                 'unique_key' => ['kd_nontender_pct'],
             ],
@@ -228,7 +228,7 @@ return [
                 'required_fields' => [
                     'kd_swakelola_pct', 'kd_satker', 'nama_paket', 'nama_satker', 'pagu'
                 ],
-                'model' => 'App\Models\PencatatanSwakelola',
+                'model' => App\Models\PencatatanSwakelola::class,
                 'table' => 'swakelola_pencatatan',
                 'unique_key' => ['kd_swakelola_pct'],
             ],
@@ -243,7 +243,7 @@ return [
                     'jenis_realisasi', 'kd_swakelola_pct', 'kd_satker',
                     'nama_paket', 'nama_satker', 'pagu'
                 ],
-                'model' => 'App\Models\SwakelolaRealisasi',
+                'model' => App\Models\SwakelolaRealisasi::class,
                 'table' => 'swakelola_realisasi',
                 'unique_key' => ['kd_swakelola_pct'],
             ],
@@ -264,7 +264,7 @@ return [
                     'rup_code', 'rup_name', 'shipment_status', 'shipping_fee', 'status',
                     'total', 'total_qty'
                 ],
-                'model' => 'App\Models\EkatalogV6Paket',
+                'model' => App\Models\EkatalogV6Paket::class,
                 'table' => 'ekatalog_v6_pakets',
                 'unique_key' => ['order_id'],
             ],
