@@ -16,6 +16,10 @@ class InaprocRekapNasionalBrowser
             '--timeout=' . ($timeoutSeconds * 1000),
             '--wait-text=' . $waitText,
         ], $timeoutSeconds);
+        file_put_contents(
+            '/tmp/inaproc-debug.json',
+            json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+        );
 
         if (!is_array($payload) || empty($payload['innerText'])) {
             throw new RuntimeException('Runner Playwright tidak mengembalikan innerText yang valid.');
