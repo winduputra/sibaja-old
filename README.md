@@ -116,3 +116,6 @@ https://isb.lkpp.go.id/isb-2/api/f9a6ed98-0cee-4d6b-8057-bf8461461dcb/json/9624/
   - Sort by 'Metode Pengadaan'
 
 - Tracking RUP Belum Terlaksanakan (Semua Metode Pengadaan)
+
+Jenis Pengadaan "Terintegrasi" adalah jenis_pengadaan more 1 data, example:  
+"jenis_pengadaan": "Barang;Jasa Lainnya"
