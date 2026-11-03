@@ -1,3 +1,4 @@
+
 <?php
 
 namespace App\Services;
@@ -10,8 +11,8 @@ class InaprocRekapNasionalTextParser
     {
         $normalized = $this->normalize($text);
 
-        $penyedia = $this->parseSection($normalized, 'Realisasi Penyedia');
-        $swakelola = $this->parseSection($normalized, 'Realisasi Swakelola');
+        $penyedia = $this->parseSection($normalized, 'Penyedia');
+        $swakelola = $this->parseSection($normalized, 'Swakelola');
 
         $totalRealisasi = $penyedia['realisasi'] + $swakelola['realisasi'];
         $totalPerencanaan = $penyedia['perencanaan'] + $swakelola['perencanaan'];
@@ -20,34 +21,41 @@ class InaprocRekapNasionalTextParser
             'penyedia_realisasi' => $penyedia['realisasi'],
             'penyedia_perencanaan' => $penyedia['perencanaan'],
             'penyedia_persentase' => $this->percentage($penyedia['realisasi'], $penyedia['perencanaan']),
+
             'swakelola_realisasi' => $swakelola['realisasi'],
             'swakelola_perencanaan' => $swakelola['perencanaan'],
             'swakelola_persentase' => $this->percentage($swakelola['realisasi'], $swakelola['perencanaan']),
+
             'total_realisasi' => $totalRealisasi,
             'total_perencanaan' => $totalPerencanaan,
             'total_persentase' => $this->percentage($totalRealisasi, $totalPerencanaan),
+
             'raw_text_hash' => hash('sha256', $normalized),
         ];
     }
 
-    private function parseSection(string $text, string $title): array
+    private function parseSection(string $text, string $type): array
     {
-        $pattern = '/' . preg_quote($title, '/') . '.*?Realisasi:\s*Rp\s*([\d.]+)\s*\|\s*Perencanaan:\s*Rp\s*([\d.]+)/isu';
+        $pattern = '/Total Nilai Perencanaan ' . preg_quote($type, '/') .
+            ':\s*Rp\s*([\d.]+).*?Total Nilai Realisasi ' . preg_quote($type, '/') .
+            ':\s*Rp\s*([\d.]+)/isu';
 
         if (!preg_match($pattern, $text, $matches)) {
-            throw new RuntimeException("Tidak menemukan blok {$title} pada hasil render Inaproc.");
+            throw new RuntimeException(
+                "Tidak menemukan nilai perencanaan/realisasi {$type} pada hasil render Inaproc."
+            );
         }
 
         return [
-            'realisasi' => $this->rupiahToNumber($matches[1]),
-            'perencanaan' => $this->rupiahToNumber($matches[2]),
+            'perencanaan' => $this->rupiahToNumber($matches[1]),
+            'realisasi' => $this->rupiahToNumber($matches[2]),
         ];
     }
 
     private function normalize(string $text): string
     {
-        $text = str_replace("\r\n", "\n", $text);
-        $text = str_replace("\r", "\n", $text);
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = str_replace("\u{00A0}", ' ', $text);
 
         return trim(preg_replace('/[ \t]+/u', ' ', $text));
     }
