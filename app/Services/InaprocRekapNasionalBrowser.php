@@ -43,7 +43,12 @@ class InaprocRekapNasionalBrowser
     {
         $nodeBinary = config('inaproc_rekap_nasional.node_binary', 'node');
         $runnerPath = base_path(config('inaproc_rekap_nasional.runner_path', 'scripts/scrape-inaproc-rekap-nasional.js'));
-        $process = new Process(array_merge([$nodeBinary, $runnerPath], $arguments));
+        $process = new Process(array_merge([
+         '/usr/bin/xvfb-run',
+         '-a',
+         $nodeBinary,
+         $runnerPath,
+        ], $arguments));
         $process->setTimeout($timeoutSeconds + 30);
         $process->run();
 
