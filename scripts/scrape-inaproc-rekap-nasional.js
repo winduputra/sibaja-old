@@ -18,7 +18,7 @@ async function main() {
     }
 
     const browser = await chromium.launch({
-        headless: process.env.INAPROC_REKAP_HEADLESS !== 'false',
+        headless: false,
     });
 
     try {
